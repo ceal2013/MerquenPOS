@@ -76,7 +76,7 @@ WSGI_APPLICATION = 'MerquenPOS.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
-        'NAME': 'MerquenBD',
+        'NAME': 'MerquenDB',
         'USER': 'sa',
         'PASSWORD': 'H3redero',
         'HOST': 'localhost\\SQLEXPRESS',
