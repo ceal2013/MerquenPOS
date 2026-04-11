@@ -13,12 +13,11 @@
     
     <style>
         :root {
-            /* NUEVA PALETA DE COLORES RECOMENDADA */
-            --color-texto-principal: #2d3436; /* Un grafito más suave */
-            --color-naranja-boton: #e65100;    /* Tu naranja fuego Merquén */
-            --color-naranja-hover: #bf360c;
-            --color-fondo: #f1f5f9;           /* Fondo general claro */
-            --color-fondo-izq: #ffffff;      /* NUEVO: Panel izquierdo limpio */
+            /* Colores ajustados al estilo HotelNew pero versión Merquén */
+            --color-primario: #8B1E1E; /* Rojo oscuro/guinda del ají */
+            --color-boton: #10b981;    /* Verde HotelNew (Combina con el logo de Merquén) */
+            --color-boton-hover: #059669;
+            --color-fondo: #f1f5f9;
         }
 
         body, html {
@@ -26,27 +25,24 @@
             overflow: hidden; 
             background-color: var(--color-fondo);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            color: var(--color-texto-principal);
         }
 
-        /* --- LADO IZQUIERDO RE-DISEÑADO --- */
+        /* --- LADO IZQUIERDO (Estilo HotelNew) --- */
         .logo-side {
-            background-color: var(--color-fondo-izq); /* Panel limpio y blanco */
-            border-right: 1px solid #e2e8f0;           /* Divisor sutil */
+            background-color: var(--color-primario); 
         }
 
-        /* Contenedor circular blanco para el logo verde */
-        .logo-holder {
+        .logo-container {
             background-color: white; 
-            border-radius: 50%;          /* Círculo perfecto */
-            padding: 30px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.1); /* Sombra elegante */
+            border-radius: 16px;      /* Bordes redondeados como en HotelNew */
+            padding: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             display: inline-block;
-            margin-bottom: 25px;
+            margin-bottom: 1.5rem;
         }
 
         .logo {
-            max-width: 180px;            /* Logo más contenido */
+            max-width: 180px; 
             height: auto;
         }
 
@@ -60,7 +56,6 @@
             max-width: 500px;
         }
 
-        /* Campos gigantes para Tablet */
         .form-control-tablet, .form-select-tablet {
             padding: 16px;
             font-size: 1.2rem;
@@ -72,15 +67,14 @@
         }
 
         .form-control-tablet:focus, .form-select-tablet:focus {
-            border-color: var(--color-naranja-boton);
+            border-color: #3b82f6;
             background-color: #ffffff;
-            box-shadow: 0 0 0 4px rgba(230, 81, 0, 0.15);
+            box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.15);
             outline: none;
         }
 
-        /* Botón estilo "Grabar" Merquén */
         .btn-merquen {
-            background-color: var(--color-naranja-boton);
+            background-color: var(--color-boton);
             border: none;
             color: white;
             padding: 18px;
@@ -93,39 +87,34 @@
         }
 
         .btn-merquen:hover {
-            background-color: var(--color-naranja-hover);
+            background-color: var(--color-boton-hover);
             color: white;
         }
-
-        /* Estilo de los textos principales */
-        .fw-bold { color: var(--color-texto-principal); }
-        .text-orange { color: var(--color-naranja-boton); }
     </style>
 </head>
 <body>
     <div class="container-fluid p-0 h-100">
         <div class="row g-0 h-100">
             
-            <div class="col-md-5 d-none d-md-flex flex-column align-items-center justify-content-center logo-side p-5">
-                
-                <div class="logo-holder">
+            <div class="col-md-5 d-none d-md-flex flex-column align-items-center justify-content-center logo-side text-white p-5 shadow-lg">
+                <div class="logo-container">
                     <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" class="logo">
                 </div>
-
-                <h1 class="h3 fw-bold mt-3">
-                    <span class="text-orange">Punto</span> de Venta Web
-                </h1>
-                <p class="lead text-center opacity-75">Toma de pedidos en mesa rápida y eficiente.</p>
+                
+                <h1 class="h3 fw-bold mt-3 text-white">Punto de Venta Web</h1>
+                <p class="lead text-center opacity-75 text-white">Toma de pedidos en mesa rápida y eficiente.</p>
             </div>
             
             <div class="col-md-7 d-flex align-items-center justify-content-center">
                 <div class="login-card">
                     
                     <div class="text-center d-md-none mb-4">
-                        <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" style="max-width: 140px;">
+                        <div class="logo-container" style="padding: 15px; margin-bottom: 0;">
+                            <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" style="max-width: 140px;">
+                        </div>
                     </div>
 
-                    <h2 class="text-center mb-4" style="color: var(--color-texto-principal); font-weight: 700;">Iniciar Sesión</h2>
+                    <h2 class="text-center mb-4" style="color: var(--color-primario); font-weight: 700;">Iniciar Sesión</h2>
                     
                     {% if error %}
                         <div class="alert alert-danger shadow-sm border-0 fw-semibold text-center">{{ error }}</div>
