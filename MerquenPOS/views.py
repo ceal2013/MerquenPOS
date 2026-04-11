@@ -2,6 +2,9 @@ from django.shortcuts import render, redirect
 from POS import services # Importamos las consultas SQL desde tu app
 
 def login_global_view(request):
+
+    nombre_local = services.obtener_nombre_local()
+
     # Si el usuario hace clic en el botón "Entrar"
     if request.method == 'POST':
         usuario_digitado = request.POST.get('usuario')
@@ -18,7 +21,8 @@ def login_global_view(request):
             # Falla: recargamos la página con error
             usuarios_bd = services.obtener_usuarios_activos()
             return render(request, 'login.html', {
-                'usuarios': usuarios_bd, 
+                'usuarios': usuarios_bd,
+                'nombre_local': nombre_local,
                 'error': 'Contraseña incorrecta o usuario inválido.'
             })
             

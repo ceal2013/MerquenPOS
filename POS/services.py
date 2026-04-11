@@ -1,5 +1,20 @@
 from django.db import connection
 
+def obtener_nombre_local():
+    """
+    Va a la tabla ValoresPOS y rescata el nombre del restaurante.
+    Usamos TOP 1 por si acaso hay más de una fila de configuración.
+    """
+    with connection.cursor() as cursor:
+        try:
+            cursor.execute("SELECT TOP 1 NCliente FROM ValoresPOS")
+            fila = cursor.fetchone()
+            if fila and fila[0]:
+                return fila[0].strip() # .strip() limpia los espacios en blanco sobrantes
+            return "Nombre del Local no configurado"
+        except Exception:
+            return "Restaurante"
+
 def obtener_usuarios_activos():
     """Trae todos los usuarios vigentes para el combobox."""
     with connection.cursor() as cursor:
