@@ -140,7 +140,7 @@
         {% else %}
         
             <ul class="nav nav-tabs" id="puntosVentaTab" role="tablist">
-                {% for punto in puntos_venta %}
+                {% for punto in puntos_con_mesas %}
                     <li class="nav-item" role="presentation">
                         <button class="nav-link {% if forloop.first %}active{% endif %}" 
                                 id="tab-{{ punto.codigo }}" 
@@ -154,14 +154,14 @@
             </ul>
 
             <div class="tab-content" id="puntosVentaTabContent">
-                {% for punto in puntos_venta %}
+                {% for punto in puntos_con_mesas %}
                     <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
                          id="panel-{{ punto.codigo }}" 
                          role="tabpanel" tabindex="0">
                         
                         <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6 g-3">
                             
-                            {% for mesa in mesas_por_punto|dict_key:punto.codigo %}
+                            {% for mesa in punto.mesas %}
                                 <div class="col">
                                     <div class="mesa-card estado-{{ mesa.estado }}" 
                                          onclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}')">
