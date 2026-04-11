@@ -13,9 +13,9 @@
     
     <style>
         :root {
-            /* Colores ajustados al estilo HotelNew pero versión Merquén */
-            --color-primario: #8B1E1E; /* Rojo oscuro/guinda del ají */
-            --color-boton: #10b981;    /* Verde HotelNew (Combina con el logo de Merquén) */
+            /* Colores corporativos Merquén */
+            --color-primario: #8B1E1E; /* Rojo oscuro/guinda */
+            --color-boton: #10b981;    /* Verde HotelNew */
             --color-boton-hover: #059669;
             --color-fondo: #f1f5f9;
         }
@@ -27,14 +27,14 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* --- LADO IZQUIERDO (Estilo HotelNew) --- */
+        /* --- LADO IZQUIERDO (ESCRITORIO) --- */
         .logo-side {
             background-color: var(--color-primario); 
         }
 
         .logo-container {
             background-color: white; 
-            border-radius: 16px;      /* Bordes redondeados como en HotelNew */
+            border-radius: 16px;      
             padding: 20px;
             box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             display: inline-block;
@@ -54,6 +54,19 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 500px;
+        }
+
+        /* En celulares muy pequeños, quitamos el padding gigante de la tarjeta para ganar espacio */
+        @media (max-width: 767px) {
+            .login-card {
+                padding: 25px 20px;
+                box-shadow: none; /* Se ve más limpio sin sombra en móvil */
+                background: transparent; /* Se fusiona con el fondo */
+            }
+            body, html {
+                background-color: white; /* Fondo blanco completo para celulares */
+                overflow: auto; /* Permitir scroll si el celular es muy pequeño */
+            }
         }
 
         .form-control-tablet, .form-select-tablet {
@@ -111,17 +124,19 @@
                 <div class="login-card">
                     
                     <div class="text-center d-md-none mb-4">
-                        <div class="logo-container" style="padding: 15px; margin-bottom: 0;">
-                            <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" style="max-width: 140px;">
-                        </div>
-                        <h1 class="h4 fw-bold mt-3 mb-0" style="color: var(--color-primario);">MerquenPOS App</h1>
+                        <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" style="max-width: 120px; margin-bottom: 15px;">
+                        
+                        <h1 class="h1 fw-bold mb-1" style="color: var(--color-primario); letter-spacing: -1px;">MerquenPOS</h1>
+                        <h2 class="h6 fw-bold text-secondary mb-0" style="text-transform: uppercase; letter-spacing: 1px;">
+                            {{ nombre_local }}
+                        </h2>
+                        
+                        <hr class="my-4" style="border-color: #cbd5e1; opacity: 1;">
+                        
+                        <h3 class="h4 text-dark fw-bold mb-0">Iniciar Sesión</h3>
                     </div>
 
-                    <h2 class="text-center mb-1" style="color: var(--color-primario); font-weight: 700;">Iniciar Sesión</h2>
-                    
-                    <p class="text-center text-muted mb-4 d-md-none fw-semibold" style="text-transform: uppercase;">
-                        {{ nombre_local }}
-                    </p>
+                    <h2 class="text-center mb-4 d-none d-md-block" style="color: var(--color-primario); font-weight: 700;">Iniciar Sesión</h2>
                     
                     {% if error %}
                         <div class="alert alert-danger shadow-sm border-0 fw-semibold text-center">{{ error }}</div>
