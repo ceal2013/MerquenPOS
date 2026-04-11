@@ -101,8 +101,10 @@
                     <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" class="logo">
                 </div>
                 
-                <h1 class="h3 fw-bold mt-3 text-white">Punto de Venta Web</h1>
-                <p class="lead text-center opacity-75 text-white">Toma de pedidos en mesa rápida y eficiente.</p>
+                <h1 class="h3 fw-bold mt-3 text-white">MerquenPOS App</h1>
+                <p class="text-center text-white mt-2" style="font-size: 1.15rem; letter-spacing: 0.5px; text-transform: uppercase;">
+                    {{ nombre_local }}
+                </p>
             </div>
             
             <div class="col-md-7 d-flex align-items-center justify-content-center">
@@ -114,7 +116,11 @@
                         </div>
                     </div>
 
-                    <h2 class="text-center mb-4" style="color: var(--color-primario); font-weight: 700;">Iniciar Sesión</h2>
+                    <h2 class="text-center mb-1" style="color: var(--color-primario); font-weight: 700;">Iniciar Sesión</h2>
+                    
+                    <p class="text-center text-muted mb-4 d-md-none fw-semibold" style="text-transform: uppercase;">
+                        {{ nombre_local }}
+                    </p>
                     
                     {% if error %}
                         <div class="alert alert-danger shadow-sm border-0 fw-semibold text-center">{{ error }}</div>
