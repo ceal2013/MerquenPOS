@@ -1,5 +1,6 @@
 from django.urls import path
+from . import views
 
 urlpatterns = [
-    # Aquí pondremos las rutas de las mesas y atenciones más adelante
+    path('mesas/', views.seleccion_mesas_view, name='seleccion_mesas'),
 ]
