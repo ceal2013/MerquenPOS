@@ -28,4 +28,7 @@ def login_global_view(request):
             
     # Carga inicial de la página
     usuarios_bd = services.obtener_usuarios_activos()
-    return render(request, 'login.html', {'usuarios': usuarios_bd})
+    return render(request, 'login.html', {
+        'usuarios': usuarios_bd,
+        'nombre_local': nombre_local 
+    })
