@@ -69,26 +69,25 @@ def getEstadoMesas(codigoPunto):
             LEFT JOIN Usuarios u 
                 ON cm.Usuario = u.Id
             WHERE m.Punto = %s
-            ORDER BY CAST(m.Mesa AS INT)
+            ORDER BY LEN(m.Mesa), m.Mesa
         """
         cursor.execute(sql, [codigoPunto])
         mesas = []
         
         for fila in cursor.fetchall():
-            numeroMesa = fila[0].strip() # Quitamos espacios sobrantes del código
+            numeroMesa = fila[0].strip()
             estadoCta = fila[1]
             cuentaImpresa = fila[2]
             total = fila[3] if fila[3] else 0
             mesaBloqueada = fila[4]
             usuarioBloqueo = fila[5]
 
-            # Lógica de VB6 traspasada a Python para definir el color/estado de la mesa
             estadoVisual = 'libre'
             if estadoCta == '0':
                 if cuentaImpresa == '1':
-                    estadoVisual = 'impresa' # Mesa con cuenta impresa (Amarilla/Azul)
+                    estadoVisual = 'impresa' 
                 else:
-                    estadoVisual = 'ocupada' # Mesa con consumos activos (Roja)
+                    estadoVisual = 'ocupada' 
 
             mesas.append({
                 'numero': numeroMesa,
