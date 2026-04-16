@@ -43,6 +43,30 @@ def verificar_login(nombre_usuario, password):
             }
         return None
     
+def obtener_turno_activo():
+    """Obtiene la fecha de proceso y el turno activo."""
+    with connection.cursor() as cursor:
+        try:
+            # Seleccionamos el último turno abierto o el activo
+            cursor.execute("SELECT TOP 1 FechaProceso, Turno FROM Turnos ORDER BY FechaProceso DESC")
+            fila = cursor.fetchone()
+            if fila:
+                fecha = fila[0]
+                numero_turno = str(fila[1]).strip()
+                
+                # Transformamos el número a texto
+                nombres_turnos = {
+                    '1': 'Desayuno',
+                    '2': 'Almuerzo',
+                    '3': 'Cena'
+                }
+                texto_turno = nombres_turnos.get(numero_turno, f"Turno {numero_turno}")
+                
+                return {'fecha': fecha, 'turno_texto': texto_turno}
+            return {'fecha': 'Sin Fecha', 'turno_texto': 'Sin Turno'}
+        except Exception:
+            return {'fecha': 'Error BD', 'turno_texto': 'Error BD'}
+    
 def getPuntosVenta():
     """Obtiene los sectores del local para armar las pestañas."""
     with connection.cursor() as cursor:

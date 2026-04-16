@@ -2,8 +2,10 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from . import services
 from MerquenPOS.decorators import custom_login_required
+from django.views.decorators.cache import never_cache
 
 @custom_login_required
+@never_cache
 def seleccion_mesas_view(request):
     """
     Vista protegida. Solo se ejecuta si el decorador valida la sesión.
@@ -23,8 +25,12 @@ def seleccion_mesas_view(request):
             'mesas': mesas_del_punto 
         })
 
+    datos_turno = services.obtener_turno_activo()
+
     return render(request, 'POS/mesas.html', {
         'usuario': usuario,
         'puntos_con_mesas': puntos_con_mesas,
-        'nombre_local': services.obtener_nombre_local() 
+        'nombre_local': services.obtener_nombre_local(),
+        'fecha_proceso': datos_turno['fecha'],
+        'turno_activo': datos_turno['turno_texto']
     })
