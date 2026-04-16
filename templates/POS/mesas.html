@@ -14,16 +14,15 @@
             --color-primario: #8B1E1E; 
             --color-fondo: #f8fafc;
             
-            /* --- NUEVA PALETA ESTILO VISUAL BASIC --- */
             --bg-libre: #ffffff;
             --border-libre: #cbd5e1;
             --text-libre: #475569;
 
-            --bg-ocupada: #dbeafe;     /* Azul Claro */
+            --bg-ocupada: #dbeafe;     
             --border-ocupada: #bfdbfe;
             --text-ocupada: #1e3a8a;
 
-            --bg-impresa: #fee2e2;     /* Rojo Claro */
+            --bg-impresa: #fee2e2;     
             --border-impresa: #fecaca;
             --text-impresa: #7f1d1d;
         }
@@ -31,6 +30,9 @@
         body {
             background-color: var(--color-fondo);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh; /* Permite que el footer se quede al fondo */
         }
 
         /* --- Barra Superior --- */
@@ -40,18 +42,27 @@
             padding: 10px 20px;
         }
 
+        .info-turno {
+            font-size: 0.9rem;
+            color: #475569;
+            background-color: #f1f5f9;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 600;
+        }
+
         /* --- Estilos de Pestañas --- */
         .nav-tabs {
             border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 20px;
+            margin-bottom: 15px; /* Reducido para ahorrar espacio */
         }
         
         .nav-tabs .nav-link {
             color: #64748b;
             font-weight: 600;
-            font-size: 1.1rem;
+            font-size: 1rem;
             border: none;
-            padding: 15px 25px;
+            padding: 12px 20px;
             border-bottom: 3px solid transparent;
         }
         
@@ -61,11 +72,11 @@
             border-bottom: 3px solid var(--color-primario);
         }
 
-        /* --- Tarjetas de Mesas --- */
+        /* --- Tarjetas de Mesas (REDUCIDAS) --- */
         .mesa-card {
-            border-radius: 12px;
+            border-radius: 10px;
             text-align: center;
-            padding: 25px 10px;
+            padding: 15px 5px; /* Padding mucho menor */
             cursor: pointer;
             transition: transform 0.1s, box-shadow 0.1s;
             position: relative; 
@@ -73,7 +84,8 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            user-select: none; /* Evita que el texto se seleccione al hacer doble clic */
         }
 
         .mesa-card:active {
@@ -81,22 +93,24 @@
         }
 
         .mesa-numero {
-            font-size: 3rem;
+            font-size: 2.2rem; /* Fuente reducida */
             font-weight: 700;
-            margin-bottom: 5px;
+            margin-bottom: 2px;
             line-height: 1;
         }
 
         .mesa-estado-texto {
-            font-size: 1rem;
+            font-size: 0.85rem; /* Fuente reducida */
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-top: 5px;
             margin-bottom: 0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis; /* Para nombres de garzones muy largos */
         }
 
-        /* Clases de estado aplicadas desde Django */
         .estado-libre { 
             background-color: var(--bg-libre); 
             border: 2px solid var(--border-libre);
@@ -113,21 +127,34 @@
             color: var(--text-impresa);
         }
 
-        /* Candado de bloqueo */
         .bloqueo-badge {
             position: absolute;
-            top: 8px;
-            right: 8px;
+            top: 5px;
+            right: 5px;
             background-color: white;
             color: var(--color-primario);
             border-radius: 50%;
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        /* --- Footer Corporativo --- */
+        .footer-corporativo {
+            background-color: white;
+            border-top: 1px solid #e2e8f0;
+            padding: 10px 0;
+            margin-top: auto; /* Empuja el footer al final de la página */
+        }
+        .footer-texto {
+            font-size: 0.8rem;
+            color: #94a3b8;
+            margin: 0;
+            font-weight: 600;
         }
     </style>
 </head>
@@ -135,17 +162,30 @@
 
     <div class="topbar d-flex justify-content-between align-items-center sticky-top">
         <div class="d-flex align-items-center">
-            <img src="{% static 'logomerquen.png' %}" alt="Logo" style="height: 40px; margin-right: 15px;">
-            <h5 class="mb-0 fw-bold d-none d-sm-block text-dark">{{ nombre_local }}</h5>
+            <img src="{% static 'logomerquen.png' %}" alt="Logo" style="height: 35px; margin-right: 15px;">
+            <h5 class="mb-0 fw-bold d-none d-lg-block text-dark">{{ nombre_local }}</h5>
         </div>
+        
+        <div class="d-none d-md-flex info-turno align-items-center shadow-sm">
+            <i class="fa-regular fa-calendar-days me-2 text-secondary"></i> {{ fecha_proceso|date:"d/m/Y" }}
+            <span class="mx-2 text-secondary">|</span>
+            <i class="fa-regular fa-clock me-2 text-secondary"></i> {{ turno_activo }}
+        </div>
+
         <div class="text-end">
             <span class="text-secondary fw-semibold me-3"><i class="fa-solid fa-user me-1"></i> {{ usuario.nombre }}</span>
             <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm fw-bold">Salir</a>
         </div>
     </div>
 
-    <div class="container-fluid py-4 px-md-4">
+    <div class="container-fluid py-3 px-md-4 mb-4">
         
+        <div class="d-md-none text-center mb-3">
+            <div class="info-turno d-inline-block shadow-sm">
+                {{ fecha_proceso|date:"d/m/Y" }} - {{ turno_activo }}
+            </div>
+        </div>
+
         {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
         {% else %}
@@ -170,12 +210,12 @@
                          id="panel-{{ punto.codigo }}" 
                          role="tabpanel" tabindex="0">
                         
-                        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-xl-6 g-3">
+                        <div class="row row-cols-3 row-cols-sm-4 row-cols-md-5 row-cols-lg-6 row-cols-xl-8 g-2">
                             
                             {% for mesa in punto.mesas %}
                                 <div class="col">
                                     <div class="mesa-card estado-{{ mesa.estado }}" 
-                                         onclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}')">
+                                         ondblclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}')">
                                         
                                         {% if mesa.bloqueada %}
                                             <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
@@ -188,7 +228,7 @@
                                         {% if mesa.estado == 'libre' %}
                                             <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
                                         {% else %}
-                                            <p class="mesa-estado-texto">
+                                            <p class="mesa-estado-texto" title="{{ mesa.usuarioBloqueo|default:'Ocupada' }}">
                                                 <i class="fa-solid fa-user me-1"></i> 
                                                 {% if mesa.usuarioBloqueo %}
                                                     {{ mesa.usuarioBloqueo }}
@@ -215,8 +255,17 @@
         {% endif %}
     </div>
 
+    <footer class="footer-corporativo text-center">
+        <div class="container">
+            <p class="footer-texto">
+                <i class="fa-solid fa-code me-1"></i> Desarrollado por <strong>Andes Systems</strong> &copy; {% now "Y" %}. Todos los derechos reservados.
+            </p>
+        </div>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+        // Función activada por Doble Clic / Doble Toque
         function abrirMesa(punto, numero, estaBloqueada, usuarioBloqueo) {
             if (estaBloqueada === 'True') {
                 alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
