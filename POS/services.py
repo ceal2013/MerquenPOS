@@ -51,7 +51,7 @@ def getPuntosVenta():
         return puntos
 
 def getEstadoMesas(codigoPunto):
-    """Obtiene todas las mesas de un punto y cruza la información para saber su estado visual."""
+    """Obtiene todas las mesas de un punto y fusiona las que tienen múltiples cuentas."""
     with connection.cursor() as cursor:
         sql = """
             SELECT 
@@ -60,7 +60,8 @@ def getEstadoMesas(codigoPunto):
                 c.Cuenta AS CuentaImpresa,
                 c.Total,
                 cm.Status AS MesaBloqueada,
-                u.Nombre AS UsuarioBloqueo
+                u.Nombre AS UsuarioBloqueo,
+                g.Nombre AS NombreGarzon
             FROM Mesas m
             LEFT JOIN CtasMesas c 
                 ON m.Mesa = c.Mesa AND m.Punto = c.Punto AND c.Status = '0'
@@ -68,11 +69,13 @@ def getEstadoMesas(codigoPunto):
                 ON m.Mesa = cm.NumMesa AND m.Punto = cm.PVenta
             LEFT JOIN Usuarios u 
                 ON cm.Usuario = u.Id
+            LEFT JOIN Garzones g
+                ON c.Garzon = g.Codigo
             WHERE m.Punto = %s
             ORDER BY LEN(m.Mesa), m.Mesa
         """
         cursor.execute(sql, [codigoPunto])
-        mesas = []
+        mesas_dict = {} # Usamos un diccionario para evitar duplicados
         
         for fila in cursor.fetchall():
             numeroMesa = fila[0].strip()
@@ -81,6 +84,7 @@ def getEstadoMesas(codigoPunto):
             total = fila[3] if fila[3] else 0
             mesaBloqueada = fila[4]
             usuarioBloqueo = fila[5]
+            nombreGarzon = fila[6]
 
             estadoVisual = 'libre'
             if estadoCta == '0':
@@ -89,12 +93,29 @@ def getEstadoMesas(codigoPunto):
                 else:
                     estadoVisual = 'ocupada' 
 
-            mesas.append({
-                'numero': numeroMesa,
-                'estado': estadoVisual,
-                'total': total,
-                'bloqueada': True if mesaBloqueada == 1 else False,
-                'usuarioBloqueo': usuarioBloqueo.strip() if usuarioBloqueo else ""
-            })
+            # LÓGICA ANTI-DUPLICADOS:
+            if numeroMesa not in mesas_dict:
+                # Si la mesa no existe, la creamos
+                mesas_dict[numeroMesa] = {
+                    'numero': numeroMesa,
+                    'estado': estadoVisual,
+                    'total': total,
+                    'bloqueada': True if mesaBloqueada == 1 else False,
+                    'usuarioBloqueo': usuarioBloqueo.strip() if usuarioBloqueo else "",
+                    'nombreGarzon': nombreGarzon.strip() if nombreGarzon else ""
+                }
+            else:
+                # Si ya existe (tiene más de 1 cuenta), le damos prioridad al estado rojo (impresa)
+                if estadoVisual == 'impresa':
+                    mesas_dict[numeroMesa]['estado'] = 'impresa'
+                elif estadoVisual == 'ocupada' and mesas_dict[numeroMesa]['estado'] == 'libre':
+                    mesas_dict[numeroMesa]['estado'] = 'ocupada'
+                
+                mesas_dict[numeroMesa]['total'] += total
+                
+                # Si esta subcuenta tiene el nombre del garzón, lo guardamos
+                if nombreGarzon and not mesas_dict[numeroMesa]['nombreGarzon']:
+                    mesas_dict[numeroMesa]['nombreGarzon'] = nombreGarzon.strip()
             
-        return mesas
+        # Convertimos el diccionario de vuelta a una lista para enviarlo al HTML
+        return list(mesas_dict.values())
