@@ -48,7 +48,7 @@ def obtener_turno_activo():
     with connection.cursor() as cursor:
         try:
             # Seleccionamos el último turno abierto o el activo
-            cursor.execute("SELECT TOP 1 FechaProceso, Turno FROM Turnos ORDER BY FechaProceso DESC")
+            cursor.execute("SELECT TOP 1 FechaProceso, Turno FROM Turno ORDER BY FechaProceso DESC")
             fila = cursor.fetchone()
             if fila:
                 fecha = fila[0]
