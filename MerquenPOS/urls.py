@@ -1,29 +1,16 @@
-"""
-URL configuration for MerquenPOS project.
-
-The `urlpatterns` list routes URLs to views. For more information please see:
-    https://docs.djangoproject.com/en/5.2/topics/http/urls/
-Examples:
-Function views
-    1. Add an import:  from my_app import views
-    2. Add a URL to urlpatterns:  path('', views.home, name='home')
-Class-based views
-    1. Add an import:  from other_app.views import Home
-    2. Add a URL to urlpatterns:  path('', Home.as_view(), name='home')
-Including another URLconf
-    1. Import the include() function: from django.urls import include, path
-    2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
-"""
 from django.contrib import admin
 from django.urls import path, include
-from . import views # Importamos tu nueva vista global
+from MerquenPOS import views as global_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     
-    # La ruta raíz (vacía '') carga tu Login Global
-    path('', views.login_global_view, name='login'),
+    # Ruta principal para la pantalla de inicio de sesión
+    path('', global_views.login_global_view, name='login'),
     
-    # Preparamos la conexión para tu app POS (lo usaremos después)
-    path('pos/', include('POS.urls')), 
+    # Ruta para ejecutar la función de cierre de sesión
+    path('logout/', global_views.logout_global, name='logout'),
+    
+    # Inclusión de las rutas específicas del módulo de mesas y pedidos
+    path('pos/', include('POS.urls')),
 ]
