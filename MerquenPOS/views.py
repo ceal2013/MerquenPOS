@@ -32,3 +32,13 @@ def login_global_view(request):
         'usuarios': usuarios_bd,
         'nombre_local': nombre_local 
     })
+
+def logout_global(request):
+    """
+    Destruye la sesión actual del usuario y lo devuelve al login.
+    """
+    # flush() elimina todos los datos de la sesión y la cookie del navegador
+    request.session.flush() 
+    
+    # Redirigimos a la pantalla de inicio de sesión
+    return redirect('login')
