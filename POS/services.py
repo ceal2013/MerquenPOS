@@ -124,7 +124,7 @@ def getEstadoMesas(codigoPunto):
                     'numero': numeroMesa,
                     'estado': estadoVisual,
                     'total': total,
-                    'bloqueada': True if mesaBloqueada == 1 else False,
+                    'bloqueada': True if str(mesaBloqueada) == '1' else False,
                     'usuarioBloqueo': usuarioBloqueo.strip() if usuarioBloqueo else "",
                     'nombreGarzon': nombreGarzon.strip() if nombreGarzon else ""
                 }
