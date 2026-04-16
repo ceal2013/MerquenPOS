@@ -272,7 +272,7 @@
                 alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
                 return;
             }
-            alert("Redirigiendo a Mesa " + numero + " del sector " + punto);
+            window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
         }
     </script>
 </body>
