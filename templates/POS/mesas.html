@@ -43,12 +43,16 @@
         }
 
         .info-turno {
-            font-size: 0.9rem;
-            color: #475569;
-            background-color: #f1f5f9;
-            padding: 5px 15px;
-            border-radius: 20px;
+            font-size: 1rem; /* Aumentado para equilibrar con el título */
+            color: #334155;
+            background-color: #f8fafc;
+            padding: 6px 18px; 
+            border-radius: 30px; /* Más redondeado y moderno */
             font-weight: 600;
+            border: 1px solid #e2e8f0; /* Borde sutil */
+        }
+        .info-turno i {
+            color: var(--color-primario); /* Íconos en color Guinda Merquén */
         }
 
         /* --- Estilos de Pestañas --- */
@@ -160,32 +164,29 @@
 </head>
 <body>
 
-    <div class="topbar d-flex justify-content-between align-items-center sticky-top">
+    <div class="topbar d-flex justify-content-between align-items-center sticky-top gap-2">
+        
         <div class="d-flex align-items-center">
-            <img src="{% static 'logomerquen.png' %}" alt="Logo" style="height: 35px; margin-right: 15px;">
+            <img src="{% static 'logomerquen.png' %}" alt="Logo" style="height: 35px; margin-right: 10px;">
             <h5 class="mb-0 fw-bold d-none d-lg-block text-dark">{{ nombre_local }}</h5>
         </div>
         
-        <div class="d-none d-md-flex info-turno align-items-center shadow-sm">
-            <i class="fa-regular fa-calendar-days me-2 text-secondary"></i> {{ fecha_proceso|date:"d/m/Y" }}
-            <span class="mx-2 text-secondary">|</span>
-            <i class="fa-regular fa-clock me-2 text-secondary"></i> {{ turno_activo }}
+        <div class="info-turno d-flex align-items-center shadow-sm text-nowrap">
+            <i class="fa-regular fa-calendar-days me-2"></i> 
+            <span class="d-none d-sm-inline">{{ fecha_proceso|date:"d/m/Y" }}</span>
+            <span class="d-sm-none">{{ fecha_proceso|date:"d/m" }}</span> <span class="mx-2 text-secondary">|</span>
+            <i class="fa-regular fa-clock me-2"></i> {{ turno_activo }}
         </div>
 
-        <div class="text-end">
-            <span class="text-secondary fw-semibold me-3"><i class="fa-solid fa-user me-1"></i> {{ usuario.nombre }}</span>
+        <div class="text-end text-nowrap">
+            <span class="text-secondary fw-semibold me-2 d-none d-md-inline"><i class="fa-solid fa-user me-1"></i> {{ usuario.nombre }}</span>
             <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm fw-bold">Salir</a>
         </div>
+        
     </div>
 
     <div class="container-fluid py-3 px-md-4 mb-4">
         
-        <div class="d-md-none text-center mb-3">
-            <div class="info-turno d-inline-block shadow-sm">
-                {{ fecha_proceso|date:"d/m/Y" }} - {{ turno_activo }}
-            </div>
-        </div>
-
         {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
         {% else %}
