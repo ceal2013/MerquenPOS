@@ -143,3 +143,66 @@ def getEstadoMesas(codigoPunto):
             
         # Convertimos el diccionario de vuelta a una lista para enviarlo al HTML
         return list(mesas_dict.values())
+    
+def obtener_cuenta_activa(punto, numero_mesa):
+    """Busca si la mesa ya tiene una cuenta abierta."""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT Folio FROM CtasMesas 
+            WHERE Punto = %s AND Mesa = %s AND Status = '0'
+        """, [punto, numero_mesa])
+        fila = cursor.fetchone()
+        return fila[0] if fila else None
+
+def generar_nuevo_folio():
+    """Obtiene el último folio de NumTables, le suma 1 y lo actualiza."""
+    with connection.cursor() as cursor:
+        # Obtenemos el último folio
+        cursor.execute("SELECT MAX(CAST(Folio AS INT)) FROM NumTables")
+        fila = cursor.fetchone()
+        ultimo_folio = fila[0] if fila[0] else 0
+        
+        nuevo_folio_int = ultimo_folio + 1
+        nuevo_folio_str = str(nuevo_folio_int).zfill(7) # Rellena con ceros, ej: '0001234'
+        
+        # Insertamos el nuevo folio en la tabla para reservarlo
+        cursor.execute("INSERT INTO NumTables (Folio) VALUES (%s)", [nuevo_folio_str])
+        
+        return nuevo_folio_str
+
+def crear_nueva_cuenta(punto, numero_mesa, garzon_id, cubiertos):
+    """Crea el registro inicial en CtasMesas usando la fecha del Turno."""
+    datos_turno = obtener_turno_activo() # Usamos la función que creamos antes
+    fecha_proceso = datos_turno['fecha']
+    turno_actual = datos_turno['turno_texto'] # Ojo: en tu BD quizás guardan 1, 2 o 3. Lo ajustamos si es necesario.
+    
+    # Mapeo inverso temporal (si en BD guardan el número y no el texto)
+    turno_bd = '1'
+    if turno_actual == 'Almuerzo': turno_bd = '2'
+    elif turno_actual == 'Cena': turno_bd = '3'
+
+    nuevo_folio = generar_nuevo_folio()
+    
+    with connection.cursor() as cursor:
+        sql = """
+            INSERT INTO CtasMesas (
+                Punto, Mesa, Garzon, Cubiertos, Hora, Status, Tipo, Docto, 
+                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Cliente, Propina, 
+                sw, Cuentas, Total, Convenio, Atencion, Habitacion, FolioCnv, 
+                Sucursal, Paquete, Admin, CCosto, Personal, TotalPersonal, 
+                Moneda, NombreCta, Usuario, Pc
+            ) VALUES (
+                %s, %s, %s, %s, CONVERT(varchar(5), GETDATE(), 108), '0', '', '', 
+                %s, %s, %s, 0, '0', '', 'Paso', 0, 
+                '0', 1, 0, 0, 0, 0, '', 
+                '', 0, 0, 0, 0, 0, 
+                'P', 'MESA ' + %s, %s, 'WEB_POS'
+            )
+        """
+        cursor.execute(sql, [
+            punto, numero_mesa, garzon_id, cubiertos, 
+            fecha_proceso, nuevo_folio, turno_bd, 
+            numero_mesa, garzon_id
+        ])
+        
+    return nuevo_folio
