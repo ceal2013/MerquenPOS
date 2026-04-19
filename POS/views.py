@@ -4,6 +4,7 @@ from . import services
 from MerquenPOS.decorators import custom_login_required
 from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
+import json
 
 @custom_login_required
 @never_cache
@@ -104,3 +105,61 @@ def api_get_grupos(request, punto, clase):
 def api_get_productos(request, punto, clase, grupo):
     productos = services.get_productos_grupo(punto, clase, grupo)
     return JsonResponse({'productos': productos})
+
+@custom_login_required
+def api_agregar_ticket(request):
+    """Recibe la orden de agregar un producto y lo guarda en BD al instante"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            punto = data.get('punto')
+            clase = data.get('clase')
+            grupo = data.get('grupo')
+            producto = data.get('producto')
+            precio = data.get('precio')
+            cantidad = data.get('cantidad')
+            
+            usuario_id = request.session['usuario_activo']['id']
+            
+            services.agregar_producto_consumo(
+                folio, punto, clase, grupo, producto, precio, cantidad, usuario_id
+            )
+            return JsonResponse({'status': 'ok'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_borrar_ticket(request):
+    """Recibe la orden del tacho de basura y borra el producto no comandado"""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        producto = data.get('producto')
+        
+        services.borrar_producto_consumo(folio, producto)
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_comandar_ticket(request):
+    """Cambia el Flag de 0 a 1 al presionar Confirmar"""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        
+        services.comandar_ticket(folio)
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_anular_ticket(request):
+    """Anula la cuenta desde el frontend si el garzón sale con la mesa vacía"""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        
+        services.anular_cuenta(folio)
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'bad_request'}, status=400)

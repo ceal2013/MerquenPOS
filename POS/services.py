@@ -296,3 +296,69 @@ def obtener_consumos_mesa(folio):
                 'nota': fila[6].strip() if fila[6] else ''
             })
         return consumos
+    
+def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id):
+    """Inserta un nuevo producto en la tabla Consumos con Flag = '0' (No comandado)"""
+    datos_turno = obtener_turno_activo()
+    fecha_proceso = datos_turno['fecha']
+    turno_actual = datos_turno['turno_texto']
+    
+    turno_bd = '1'
+    if turno_actual == 'Almuerzo': turno_bd = '2'
+    elif turno_actual == 'Cena': turno_bd = '3'
+
+    with connection.cursor() as cursor:
+        # 1. Obtenemos el número de mesa real asociado a este folio
+        cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
+        fila_mesa = cursor.fetchone()
+        mesa = fila_mesa[0] if fila_mesa else ''
+
+        # 2. Calculamos el siguiente Indice para este folio
+        cursor.execute("SELECT ISNULL(MAX(Indice), 0) + 1 FROM Consumos WHERE Folio = %s", [folio])
+        fila_indice = cursor.fetchone()
+        nuevo_indice = fila_indice[0]
+
+        # 3. Insertamos respetando todos tus campos obligatorios
+        sql = """
+            INSERT INTO Consumos (
+                Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
+                Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
+                Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
+                Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
+            ) VALUES (
+                %s, %s, %s, %s, %s, %s, '', '', '',
+                '0', %s, %s, %s, %s, '', '0',
+                '', %s, %s, %s, %s, %s, %s,
+                '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
+            )
+        """
+        cursor.execute(sql, [
+            punto, mesa, grupo, producto, cantidad, precio,
+            folio, fecha_proceso, turno_bd, clase,
+            usuario_id, clase, grupo, producto, nuevo_indice, precio
+        ])
+
+def borrar_producto_consumo(folio, producto):
+    """Elimina físicamente de la BD un producto que AÚN NO ha sido comandado (Flag='0')"""
+    with connection.cursor() as cursor:
+        sql = """
+            DELETE FROM Consumos 
+            WHERE Folio = %s AND Producto = %s AND (Flag = '0' OR Flag IS NULL OR Flag = '')
+        """
+        cursor.execute(sql, [folio, producto])
+
+def comandar_ticket(folio):
+    """Pasa los productos nuevos de Flag '0' a '1' (Comandados)"""
+    with connection.cursor() as cursor:
+        sql = """
+            UPDATE Consumos 
+            SET Flag = '1' 
+            WHERE Folio = %s AND (Flag = '0' OR Flag IS NULL OR Flag = '')
+        """
+        cursor.execute(sql, [folio])
+
+def anular_cuenta(folio):
+    """Anula la cuenta (sw='1') y libera la mesa (Status='1') si no hubo consumos"""
+    with connection.cursor() as cursor:
+        sql = "UPDATE CtasMesas SET sw = '1', Status = '1' WHERE Folio = %s"
+        cursor.execute(sql, [folio])
