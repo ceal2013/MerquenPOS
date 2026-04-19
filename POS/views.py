@@ -3,6 +3,7 @@ from django.contrib import messages
 from . import services
 from MerquenPOS.decorators import custom_login_required
 from django.views.decorators.cache import never_cache
+from django.http import JsonResponse
 
 @custom_login_required
 @never_cache
@@ -64,8 +65,31 @@ def abrir_mesa_view(request, punto, numero):
         'nombre_local': services.obtener_nombre_local()
     })
 
-# --- (Deja este bloque vacío por ahora, lo usaremos después) ---
 @never_cache
 @custom_login_required
 def comanda_view(request, punto, numero, folio):
-    return render(request, 'POS/comanda_temporal.html', {'folio': folio})
+    usuario = request.session['usuario_activo']
+    
+    # 1. Traer Familias disponibles para este punto
+    familias = services.get_familias_punto(punto)
+    
+    # (Opcional) Puedes traer los productos ya consumidos de la mesa aquí
+    # consumos = services.obtener_consumos_mesa(folio)
+    
+    return render(request, 'POS/comanda.html', {
+        'punto': punto,
+        'numero': numero,
+        'folio': folio,
+        'familias': familias,
+        'nombre_local': services.obtener_nombre_local()
+    })
+
+@custom_login_required
+def api_get_grupos(request, punto, clase):
+    grupos = services.get_grupos_punto(punto, clase)
+    return JsonResponse({'grupos': grupos})
+
+@custom_login_required
+def api_get_productos(request, punto, clase, grupo):
+    productos = services.get_productos_grupo(punto, clase, grupo)
+    return JsonResponse({'productos': productos})
