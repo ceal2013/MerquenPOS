@@ -4,84 +4,44 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="csrf-token" content="{{ csrf_token }}">
     <title>Mesa {{ numero }} - Comanda</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <style>
         :root {
-            --color-primario: #8B1E1E; /* Guinda */
+            --color-primario: #8B1E1E;
             --bg-ticket: #ffffff;
             --bg-menu: #f1f5f9;
-            --color-familia: #1e3a8a; /* Azul oscuro VB6 */
-            --color-grupo: #0ea5e9;   /* Azul claro */
+            --color-familia: #1e3a8a;
+            --color-grupo: #0ea5e9;
             --color-producto: #ffffff;
         }
 
         body {
             background-color: var(--bg-menu);
-            overflow: hidden; /* Evita scroll en toda la página */
-            user-select: none; /* Evita seleccionar texto al tocar rápido */
+            overflow: hidden; 
+            user-select: none; 
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
-        /* --- LAYOUT SPLIT SCREEN --- */
+        /* --- LAYOUT RESPONSIVO --- */
         .pos-container {
             display: flex;
             height: 100vh;
             width: 100vw;
         }
 
-        /* --- PANEL IZQUIERDO (TICKET) --- */
         .panel-ticket {
             width: 35%;
             background-color: var(--bg-ticket);
             border-right: 2px solid #cbd5e1;
             display: flex;
             flex-direction: column;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.05);
             z-index: 10;
         }
 
-        .ticket-header {
-            padding: 10px 15px;
-            border-bottom: 2px dashed #cbd5e1;
-            background-color: #f8fafc;
-        }
-
-        .ticket-body {
-            flex-grow: 1;
-            overflow-y: auto;
-            padding: 0;
-        }
-
-        .ticket-footer {
-            padding: 15px;
-            background-color: #f8fafc;
-            border-top: 2px solid #cbd5e1;
-        }
-
-        /* Tabla del Ticket */
-        .tabla-comanda th {
-            position: sticky;
-            top: 0;
-            background: white;
-            font-size: 0.85rem;
-            color: #64748b;
-            text-transform: uppercase;
-        }
-        .tabla-comanda td {
-            vertical-align: middle;
-            font-size: 0.95rem;
-            font-weight: 600;
-        }
-        .btn-accion-linea {
-            padding: 5px 8px;
-            border-radius: 5px;
-            font-size: 1rem;
-        }
-
-        /* --- PANEL DERECHO (MENÚ) --- */
         .panel-menu {
             width: 65%;
             display: flex;
@@ -89,23 +49,30 @@
             background-color: var(--bg-menu);
         }
 
-        .menu-header {
-            background-color: white;
-            padding: 10px 20px;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            height: 60px;
+        /* Magia Responsiva: Si la pantalla es angosta, apilamos verticalmente */
+        @media (max-width: 992px) {
+            .pos-container { flex-direction: column; }
+            .panel-menu { width: 100%; flex: 6; } /* Ocupa el 60% superior */
+            .panel-ticket { width: 100%; flex: 4; border-right: none; border-top: 3px solid var(--color-primario); }
+            
+            /* Ajustes finos para que quepa mejor en móvil */
+            .btn-pos { height: 75px; font-size: 0.9rem; padding: 5px; }
+            .menu-header { height: auto; padding: 10px; flex-wrap: wrap; gap: 5px; }
+            .ticket-header, .ticket-footer { padding: 10px; }
         }
 
-        .menu-body {
-            flex-grow: 1;
-            padding: 15px;
-            overflow-y: auto;
-        }
+        /* --- ESTILOS INTERNOS --- */
+        .ticket-header { padding: 10px 15px; border-bottom: 2px dashed #cbd5e1; background-color: #f8fafc; }
+        .ticket-body { flex-grow: 1; overflow-y: auto; padding: 0; }
+        .ticket-footer { padding: 15px; background-color: #f8fafc; border-top: 2px solid #cbd5e1; }
 
-        /* Botones de Navegación (Familias, Grupos, Productos) */
+        .tabla-comanda th { position: sticky; top: 0; background: white; font-size: 0.85rem; color: #64748b; }
+        .tabla-comanda td { vertical-align: middle; font-size: 0.95rem; font-weight: 600; }
+        .btn-accion-linea { padding: 5px 8px; border-radius: 5px; font-size: 1rem; }
+
+        .menu-header { background-color: white; padding: 10px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .menu-body { flex-grow: 1; padding: 15px; overflow-y: auto; }
+
         .btn-pos {
             height: 90px;
             border-radius: 10px;
@@ -128,8 +95,6 @@
         .btn-grupo { background-color: var(--color-grupo); color: white; }
         .btn-producto { background-color: var(--color-producto); color: #334155; border: 2px solid #cbd5e1; }
         .btn-volver { background-color: #64748b; color: white; height: 100%; border-radius: 8px;}
-
-        /* Ocultar secciones dinámicamente */
         .d-none { display: none !important; }
     </style>
 </head>
@@ -138,7 +103,6 @@
     <div class="pos-container">
         
         <div class="panel-ticket">
-            
             <div class="ticket-header">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <h5 class="fw-bold text-dark mb-0">Mesa {{ numero }}</h5>
@@ -160,8 +124,7 @@
                             <th width="20%" class="text-center"><i class="fa-solid fa-bolt"></i></th>
                         </tr>
                     </thead>
-                    <tbody id="tbody-ticket">
-                        </tbody>
+                    <tbody id="tbody-ticket"></tbody>
                 </table>
             </div>
 
@@ -172,12 +135,12 @@
                 </div>
                 <div class="row g-2">
                     <div class="col-6">
-                        <a href="{% url 'seleccion_mesas' %}" class="btn btn-danger w-100 py-3 fw-bold fs-5">
+                        <button class="btn btn-danger w-100 py-3 fw-bold fs-5" onclick="accionarCierre('regresar')">
                             <i class="fa-solid fa-arrow-left me-2"></i>Regresar
-                        </a>
+                        </button>
                     </div>
                     <div class="col-6">
-                        <button class="btn btn-success w-100 py-3 fw-bold fs-5" onclick="confirmarPedido()">
+                        <button class="btn btn-success w-100 py-3 fw-bold fs-5" onclick="accionarCierre('confirmar')">
                             <i class="fa-solid fa-check-double me-2"></i>Confirmar
                         </button>
                     </div>
@@ -186,22 +149,25 @@
         </div>
 
         <div class="panel-menu">
-            
             <div class="menu-header">
-                <div class="d-flex align-items-center h-100">
-                    <button id="btn-volver-catalogo" class="btn btn-volver me-3 d-none fw-bold px-4" onclick="subirNivel()">
-                        <i class="fa-solid fa-reply"></i> VOLVER
+                <div class="d-flex align-items-center h-100 gap-2">
+                    <button id="btn-volver-catalogo" class="btn btn-volver d-none fw-bold px-3" onclick="subirNivel()">
+                        <i class="fa-solid fa-reply"></i>
                     </button>
-                    <h5 class="mb-0 fw-bold text-secondary" id="lbl-ruta-menu">FAMILIAS</h5>
+                    
+                    <button id="btn-multiplicador" class="btn btn-outline-secondary fw-bold px-3" onclick="pedirMultiplicador()" title="Multiplicar Cantidad">
+                        <i class="fa-solid fa-xmark me-1"></i><span id="txt-multiplicador">1</span>
+                    </button>
+
+                    <h5 class="mb-0 fw-bold text-secondary ms-2" id="lbl-ruta-menu">FAMILIAS</h5>
                 </div>
-                <div class="text-end text-muted" style="font-size: 0.9rem;">
+                <div class="text-end text-muted d-none d-md-block" style="font-size: 0.9rem;">
                     <span class="me-3"><i class="fa-regular fa-clock"></i> {{ turno_activo }}</span>
                     <span>{{ nombre_local }} - {{ punto }}</span>
                 </div>
             </div>
 
             <div class="menu-body">
-                
                 <div id="grid-familias" class="row row-cols-3 row-cols-md-4 row-cols-xl-5 g-3">
                     {% for f in familias %}
                     <div class="col">
@@ -213,11 +179,8 @@
                     <div class="col-12 text-center text-muted mt-5">No hay familias configuradas para este Punto.</div>
                     {% endfor %}
                 </div>
-
                 <div id="grid-grupos" class="row row-cols-3 row-cols-md-4 row-cols-xl-5 g-3 d-none"></div>
-
                 <div id="grid-productos" class="row row-cols-3 row-cols-md-4 row-cols-xl-5 g-3 d-none"></div>
-
             </div>
         </div>
     </div>
@@ -243,56 +206,43 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- ESTADO DE LA APLICACIÓN ---
-        let nivelActual = 'familias'; // 'familias', 'grupos', 'productos'
+        // --- ESTADO GENERAL ---
+        let nivelActual = 'familias'; 
         let claseActiva = '';
         let nombreFamiliaActiva = '';
+        let multiplicadorActivo = 1; // Para el botón X Cantidad
         
-        // --- LÓGICA DE PRE-CARGA DESDE DJANGO ---
-        // Llenamos el "Carrito" de compras con los productos que ya vienen de la BD
+        // CSRF Token para AJAX
+        const csrftoken = document.querySelector('meta[name="csrf-token"]').content;
+
         let comanda = [
             {% for item in consumos_previos %}
             {
-                codigo: '{{ item.codigo|escapejs }}',
-                nombre: '{{ item.nombre|escapejs }}',
-                precio: parseFloat('{{ item.precio|stringformat:"f" }}'),
-                cantidad: parseFloat('{{ item.cantidad|stringformat:"f" }}'),
-                clase: '{{ item.clase|escapejs }}',
-                grupo: '{{ item.grupo|escapejs }}',
-                estado: 'guardado', // Esto le dice al JS que ponga la impresora, no el tacho
-                nota: '{{ item.nota|escapejs }}'
+                codigo: '{{ item.codigo|escapejs }}', nombre: '{{ item.nombre|escapejs }}',
+                precio: parseFloat('{{ item.precio|stringformat:"f" }}'), cantidad: parseFloat('{{ item.cantidad|stringformat:"f" }}'),
+                clase: '{{ item.clase|escapejs }}', grupo: '{{ item.grupo|escapejs }}',
+                estado: 'guardado', nota: '{{ item.nota|escapejs }}'
             }{% if not forloop.last %},{% endif %}
             {% endfor %}
         ];
         
         let modalNotaObj = new bootstrap.Modal(document.getElementById('modalNota'));
 
-        // Renderizamos el ticket apenas carga la página para mostrar los productos previos
-        document.addEventListener("DOMContentLoaded", function() {
-            renderizarTicket();
-        });
+        document.addEventListener("DOMContentLoaded", function() { renderizarTicket(); });
 
-        // --- NAVEGACIÓN DEL MENÚ (AJAX) ---
+        // --- NAVEGACIÓN ---
         function cargarGrupos(punto, clase, nombreFamilia) {
-            claseActiva = clase;
-            nombreFamiliaActiva = nombreFamilia;
-            
+            claseActiva = clase; nombreFamiliaActiva = nombreFamilia;
             fetch(`/pos/api/grupos/${punto}/${clase}/`)
                 .then(response => response.json())
                 .then(data => {
                     let html = '';
                     data.grupos.forEach(g => {
-                        html += `
-                        <div class="col">
-                            <button class="btn-pos btn-grupo w-100" onclick="cargarProductos('${punto}', '${clase}', '${g.grupo}', '${g.nombre}')">
-                                ${g.nombre}
-                            </button>
-                        </div>`;
+                        html += `<div class="col"><button class="btn-pos btn-grupo w-100" onclick="cargarProductos('${punto}', '${clase}', '${g.grupo}', '${g.nombre}')">${g.nombre}</button></div>`;
                     });
                     document.getElementById('grid-grupos').innerHTML = html;
                     cambiarNivel('grupos', nombreFamilia);
-                })
-                .catch(err => console.error("Error cargando grupos:", err));
+                });
         }
 
         function cargarProductos(punto, clase, grupo, nombreGrupo) {
@@ -304,70 +254,99 @@
                         html += `
                         <div class="col">
                             <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${p.nombre}', ${p.precio}, '${clase}', '${grupo}')">
-                                <div>
-                                    <span class="d-block mb-1">${p.nombre}</span>
-                                    <span class="badge bg-success">$${p.precio}</span>
-                                </div>
+                                <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span></div>
                             </button>
                         </div>`;
                     });
                     document.getElementById('grid-productos').innerHTML = html;
                     cambiarNivel('productos', `${nombreFamiliaActiva} > ${nombreGrupo}`);
-                })
-                .catch(err => console.error("Error cargando productos:", err));
+                });
         }
 
         function cambiarNivel(nuevoNivel, titulo) {
             nivelActual = nuevoNivel;
             document.getElementById('lbl-ruta-menu').innerText = titulo;
-            
             document.getElementById('grid-familias').classList.add('d-none');
             document.getElementById('grid-grupos').classList.add('d-none');
             document.getElementById('grid-productos').classList.add('d-none');
 
             const btnVolver = document.getElementById('btn-volver-catalogo');
             if (nivelActual === 'familias') {
-                btnVolver.classList.add('d-none');
-                document.getElementById('grid-familias').classList.remove('d-none');
+                btnVolver.classList.add('d-none'); document.getElementById('grid-familias').classList.remove('d-none');
                 document.getElementById('lbl-ruta-menu').innerText = 'FAMILIAS';
             } else if (nivelActual === 'grupos') {
-                btnVolver.classList.remove('d-none');
-                document.getElementById('grid-grupos').classList.remove('d-none');
+                btnVolver.classList.remove('d-none'); document.getElementById('grid-grupos').classList.remove('d-none');
             } else if (nivelActual === 'productos') {
-                btnVolver.classList.remove('d-none');
-                document.getElementById('grid-productos').classList.remove('d-none');
+                btnVolver.classList.remove('d-none'); document.getElementById('grid-productos').classList.remove('d-none');
             }
         }
 
         function subirNivel() {
-            if (nivelActual === 'productos') {
-                cambiarNivel('grupos', nombreFamiliaActiva);
-            } else if (nivelActual === 'grupos') {
-                cambiarNivel('familias', 'FAMILIAS');
+            if (nivelActual === 'productos') cambiarNivel('grupos', nombreFamiliaActiva);
+            else if (nivelActual === 'grupos') cambiarNivel('familias', 'FAMILIAS');
+        }
+
+        // --- MULTIPLICADOR ---
+        function pedirMultiplicador() {
+            let cant = prompt("Ingrese cantidad a sumar del próximo producto:", "1");
+            if (cant && !isNaN(cant) && parseInt(cant) > 0) {
+                multiplicadorActivo = parseInt(cant);
+                document.getElementById('txt-multiplicador').innerText = multiplicadorActivo;
+                document.getElementById('btn-multiplicador').classList.replace('btn-outline-secondary', 'btn-warning');
             }
         }
 
-        // --- LÓGICA DEL TICKET (CARRITO) ---
+        // --- TICKETS Y AJAX ---
         function agregarAlTicket(codigo, nombre, precio, clase, grupo) {
-            let itemExistente = comanda.find(item => item.codigo === codigo && item.estado === 'nuevo' && item.nota === '');
+            let cantAUsar = multiplicadorActivo;
             
+            // Reseteo visual del multiplicador a 1
+            multiplicadorActivo = 1;
+            document.getElementById('txt-multiplicador').innerText = '1';
+            document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
+
+            // 1. Mostrar en pantalla Inmediatamente (Optimismo)
+            let itemExistente = comanda.find(item => item.codigo === codigo && item.estado === 'nuevo' && item.nota === '');
             if (itemExistente) {
-                itemExistente.cantidad += 1;
+                itemExistente.cantidad += cantAUsar;
             } else {
                 comanda.push({
-                    codigo: codigo,
-                    nombre: nombre,
-                    precio: parseFloat(precio),
-                    cantidad: 1,
-                    clase: clase,
-                    grupo: grupo,
-                    estado: 'nuevo', 
-                    nota: ''
+                    codigo: codigo, nombre: nombre, precio: parseFloat(precio),
+                    cantidad: cantAUsar, clase: clase, grupo: grupo, estado: 'nuevo', nota: ''
                 });
             }
             renderizarTicket();
+
+            // 2. Grabar en Base de Datos al instante (AJAX)
+            fetch('/pos/api/ticket/agregar/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                body: JSON.stringify({
+                    folio: '{{ folio }}', punto: '{{ punto }}', clase: clase, 
+                    grupo: grupo, producto: codigo, precio: precio, cantidad: cantAUsar
+                })
+            }).catch(err => console.log("Nota: Esperando conexión a Python."));
         }
 
+        function borrarDelTicket(index) {
+            if (comanda[index].estado === 'nuevo') {
+                let item = comanda[index];
+                
+                // Borrar de BD
+                fetch('/pos/api/ticket/borrar/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify({
+                        folio: '{{ folio }}', producto: item.codigo, cantidad: item.cantidad
+                    })
+                });
+
+                comanda.splice(index, 1);
+                renderizarTicket();
+            }
+        }
+
+        // ... Lógica de Renderizado y Notas igual a la anterior ...
         function renderizarTicket() {
             const tbody = document.getElementById('tbody-ticket');
             tbody.innerHTML = '';
@@ -375,40 +354,23 @@
 
             comanda.forEach((item, index) => {
                 total += (item.precio * item.cantidad);
-                
-                let iconosHtml = '';
-                if (item.estado === 'guardado') {
-                    iconosHtml = `<span class="text-success fs-5"><i class="fa-solid fa-print"></i></span>`;
-                } else {
-                    iconosHtml = `
-                        <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})"><i class="fa-solid fa-pencil"></i></button>
-                        <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>
-                    `;
-                }
+                let iconosHtml = item.estado === 'guardado' 
+                    ? `<span class="text-success fs-5"><i class="fa-solid fa-print"></i></span>`
+                    : `<button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})"><i class="fa-solid fa-pencil"></i></button>
+                       <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
 
                 let notaHtml = item.nota ? `<br><small class="text-warning fw-bold"><i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i>${item.nota}</small>` : '';
 
-                tbody.innerHTML += `
-                    <tr>
-                        <td class="text-center text-primary fs-5">${item.cantidad}</td>
-                        <td>${item.nombre} ${notaHtml}</td>
-                        <td class="text-end">$${item.precio.toFixed(0)}</td>
-                        <td class="text-center">${iconosHtml}</td>
-                    </tr>
-                `;
+                tbody.innerHTML += `<tr>
+                    <td class="text-center text-primary fs-5">${item.cantidad}</td>
+                    <td>${item.nombre} ${notaHtml}</td>
+                    <td class="text-end">$${item.precio.toFixed(0)}</td>
+                    <td class="text-center">${iconosHtml}</td>
+                </tr>`;
             });
-
             document.getElementById('lbl-total').innerText = '$ ' + total.toFixed(0);
         }
 
-        function borrarDelTicket(index) {
-            if (comanda[index].estado === 'nuevo') {
-                comanda.splice(index, 1);
-                renderizarTicket();
-            }
-        }
-
-        // --- NOTAS Y COMENTARIOS ---
         function abrirNota(index) {
             document.getElementById('nota-item-index').value = index;
             document.getElementById('txt-nota').value = comanda[index].nota;
@@ -418,25 +380,37 @@
 
         function guardarNota() {
             let index = document.getElementById('nota-item-index').value;
-            let texto = document.getElementById('txt-nota').value.toUpperCase();
-            comanda[index].nota = texto;
+            comanda[index].nota = document.getElementById('txt-nota').value.toUpperCase();
             modalNotaObj.hide();
             renderizarTicket();
         }
 
-        // --- GUARDAR Y SALIR ---
-        function confirmarPedido() {
-            let itemsNuevos = comanda.filter(i => i.estado === 'nuevo');
-            if (itemsNuevos.length === 0) {
-                // Modificado para coincidir con tu requerimiento: si no hay nada, regresa sin guardar
-                window.location.href = "{% url 'seleccion_mesas' %}";
-                return;
+        // --- LÓGICA DE CIERRE / ANULACIÓN ---
+        function accionarCierre(accion) {
+            if (comanda.length === 0) {
+                // MESA VACÍA: Preguntar si anula
+                if (confirm("La mesa no tiene productos cargados.\n¿Desea anular la cuenta y liberar la mesa?")) {
+                    fetch('/pos/api/ticket/anular/', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                        body: JSON.stringify({folio: '{{ folio }}'})
+                    }).then(() => window.location.href = "{% url 'seleccion_mesas' %}");
+                } else {
+                    window.location.href = "{% url 'seleccion_mesas' %}";
+                }
+            } else {
+                if (accion === 'confirmar') {
+                    // Hay productos, pasamos a Flag 1
+                    fetch('/pos/api/ticket/comandar/', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                        body: JSON.stringify({folio: '{{ folio }}'})
+                    }).then(() => window.location.href = "{% url 'seleccion_mesas' %}");
+                } else {
+                    window.location.href = "{% url 'seleccion_mesas' %}";
+                }
             }
-            
-            alert(`Simulación: Enviando ${itemsNuevos.length} productos a la base de datos (Consumos)...\n\nEn el siguiente paso programaremos el POST a Python.`);
-            // Aquí irá el POST JSON (fetch) hacia tu backend
         }
-
     </script>
 </body>
 </html>
