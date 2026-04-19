@@ -261,3 +261,38 @@ def get_productos_grupo(punto, clase, grupo):
         """
         cursor.execute(sql, [clase, grupo, punto])
         return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': f[3] == '1'} for f in cursor.fetchall()]
+    
+def obtener_cubiertos_cuenta(folio):
+    """Obtiene la cantidad de cubiertos ingresados al abrir la cuenta."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Cubiertos FROM CtasMesas WHERE Folio = %s AND Status = '0'", [folio])
+        fila = cursor.fetchone()
+        return fila[0] if fila else 1
+
+def obtener_consumos_mesa(folio):
+    """Obtiene los productos que ya fueron enviados a la cocina (guardados en BD)."""
+    with connection.cursor() as cursor:
+        # Hacemos JOIN con Productos para traer el Nombre real del plato
+        sql = """
+            SELECT 
+                c.Producto, p.NProducto, c.Valor, c.Cantidad, 
+                c.Clase, c.Grupo, c.Nota
+            FROM Consumos c
+            JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
+            WHERE c.Folio = %s 
+              AND (c.sw IS NULL OR c.sw = '' OR c.sw = '0') 
+            ORDER BY c.SubIndice
+        """
+        cursor.execute(sql, [folio])
+        consumos = []
+        for fila in cursor.fetchall():
+            consumos.append({
+                'codigo': fila[0].strip(),
+                'nombre': fila[1].strip(),
+                'precio': float(fila[2]),
+                'cantidad': float(fila[3]),
+                'clase': fila[4].strip(),
+                'grupo': fila[5].strip(),
+                'nota': fila[6].strip() if fila[6] else ''
+            })
+        return consumos
