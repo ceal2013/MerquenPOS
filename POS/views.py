@@ -69,18 +69,17 @@ def abrir_mesa_view(request, punto, numero):
 @custom_login_required
 def comanda_view(request, punto, numero, folio):
     usuario = request.session['usuario_activo']
-    
-    # 1. Traer Familias disponibles para este punto
+    datos_turno = services.obtener_turno_activo()
     familias = services.get_familias_punto(punto)
-    
-    # (Opcional) Puedes traer los productos ya consumidos de la mesa aquí
-    # consumos = services.obtener_consumos_mesa(folio)
     
     return render(request, 'POS/comanda.html', {
         'punto': punto,
         'numero': numero,
         'folio': folio,
         'familias': familias,
+        'usuario': usuario,
+        'fecha_proceso': datos_turno['fecha'],
+        'turno_activo': datos_turno['turno_texto'],
         'nombre_local': services.obtener_nombre_local()
     })
 
