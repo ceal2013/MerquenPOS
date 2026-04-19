@@ -274,6 +274,28 @@
             }
             window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
         }
+
+        // --- NUEVO: Lógica para recordar la pestaña activa ---
+        document.addEventListener('DOMContentLoaded', function() {
+            // 1. Leer si hay una pestaña guardada en la memoria del navegador
+            let activeTab = localStorage.getItem('activeTab_Mesas');
+            if (activeTab) {
+                let tabElement = document.getElementById('tab-' + activeTab);
+                if (tabElement) {
+                    let tab = new bootstrap.Tab(tabElement);
+                    tab.show();
+                }
+            }
+
+            // 2. Escuchar cada vez que el usuario cambia de pestaña y guardarlo
+            let tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
+            tabs.forEach(t => {
+                t.addEventListener('shown.bs.tab', function(e) {
+                    let puntoId = e.target.id.replace('tab-', '');
+                    localStorage.setItem('activeTab_Mesas', puntoId);
+                });
+            });
+        });
     </script>
 </body>
 </html>
