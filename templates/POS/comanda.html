@@ -204,27 +204,31 @@
         </div>
     </div>
 
+    {{ consumos_previos|json_script:"consumos-data" }}
+    
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- ESTADO GENERAL ---
+        // --- ESTADO DE LA APLICACIÓN ---
         let nivelActual = 'familias'; 
         let claseActiva = '';
         let nombreFamiliaActiva = '';
-        let multiplicadorActivo = 1; // Para el botón X Cantidad
+        let multiplicadorActivo = 1; 
         
-        // CSRF Token para AJAX
         const csrftoken = document.querySelector('meta[name="csrf-token"]').content;
 
-        let comanda = [
-            {% for item in consumos_previos %}
-            {
-                codigo: '{{ item.codigo|escapejs }}', nombre: '{{ item.nombre|escapejs }}',
-                precio: parseFloat('{{ item.precio|stringformat:"f" }}'), cantidad: parseFloat('{{ item.cantidad|stringformat:"f" }}'),
-                clase: '{{ item.clase|escapejs }}', grupo: '{{ item.grupo|escapejs }}',
-                estado: 'guardado', nota: '{{ item.nota|escapejs }}'
-            }{% if not forloop.last %},{% endif %}
-            {% endfor %}
-        ];
+        // --- LÓGICA DE PRE-CARGA DESDE DJANGO (Sin advertencias en VS Code) ---
+        const consumosBD = JSON.parse(document.getElementById('consumos-data').textContent);
+        
+        let comanda = consumosBD.map(item => ({
+            codigo: item.codigo,
+            nombre: item.nombre,
+            precio: parseFloat(item.precio),
+            cantidad: parseFloat(item.cantidad),
+            clase: item.clase,
+            grupo: item.grupo,
+            estado: 'guardado', // Marcamos todo lo que viene de la BD como guardado
+            nota: item.nota || ''
+        }));
         
         let modalNotaObj = new bootstrap.Modal(document.getElementById('modalNota'));
 
