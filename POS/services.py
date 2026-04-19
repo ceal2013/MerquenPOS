@@ -1,29 +1,34 @@
 from django.db import connection
 
+# =====================================================================
+# BLOQUE 1: CONFIGURACIÓN GLOBAL Y LOGIN
+# Maneja el acceso al sistema y variables del entorno del local.
+# =====================================================================
+
 def obtener_nombre_local():
     """
     Va a la tabla ValoresPOS y rescata el nombre del restaurante.
-    Usamos TOP 1 por si acaso hay más de una fila de configuración.
+    Usamos TOP 1 por si hay varias filas de configuración antigua.
     """
     with connection.cursor() as cursor:
         try:
             cursor.execute("SELECT TOP 1 NCliente FROM ValoresPOS")
             fila = cursor.fetchone()
             if fila and fila[0]:
-                return fila[0].strip() # .strip() limpia los espacios en blanco sobrantes
+                return fila[0].strip() # .strip() limpia espacios en blanco sobrantes
             return "Nombre del Local no configurado"
         except Exception:
             return "Restaurante"
 
 def obtener_usuarios_activos():
-    """Trae todos los usuarios vigentes para el combobox."""
+    """Trae todos los usuarios vigentes para el combobox del Login."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT Nombre FROM Usuarios WHERE Vigente = 'S' ORDER BY Nombre")
         usuarios = [{'nombre': fila[0]} for fila in cursor.fetchall()]
         return usuarios
 
 def verificar_login(nombre_usuario, password):
-    """Valida credenciales en SQL Server."""
+    """Valida credenciales y rescata los permisos clave (Admin/Supervisor)."""
     with connection.cursor() as cursor:
         sql = """
             SELECT Id, Nombre, Cargo, Admin, Supervisor 
@@ -44,38 +49,45 @@ def verificar_login(nombre_usuario, password):
         return None
     
 def obtener_turno_activo():
-    """Obtiene la fecha de proceso y el turno activo."""
+    """
+    LÓGICA CRÍTICA: Jamás usar la fecha del sistema Windows.
+    Siempre obtenemos la fecha contable del último Turno abierto en la BD.
+    """
     with connection.cursor() as cursor:
         try:
-            # Seleccionamos el último turno abierto o el activo
             cursor.execute("SELECT TOP 1 FechaProceso, Turno FROM Turno ORDER BY FechaProceso DESC")
             fila = cursor.fetchone()
             if fila:
                 fecha = fila[0]
                 numero_turno = str(fila[1]).strip()
                 
-                # Transformamos el número a texto
-                nombres_turnos = {
-                    '1': 'Desayuno',
-                    '2': 'Almuerzo',
-                    '3': 'Cena'
-                }
+                # Mapeo visual para la pantalla
+                nombres_turnos = {'1': 'Desayuno', '2': 'Almuerzo', '3': 'Cena'}
                 texto_turno = nombres_turnos.get(numero_turno, f"Turno {numero_turno}")
                 
                 return {'fecha': fecha, 'turno_texto': texto_turno}
             return {'fecha': 'Sin Fecha', 'turno_texto': 'Sin Turno'}
         except Exception:
             return {'fecha': 'Error BD', 'turno_texto': 'Error BD'}
-    
+
+# =====================================================================
+# BLOQUE 2: PLANO DE MESAS
+# Dibuja la pantalla inicial y los estados de color de las mesas.
+# =====================================================================
+
 def getPuntosVenta():
-    """Obtiene los sectores del local para armar las pestañas."""
+    """Obtiene los sectores del local (Bar, Terraza, etc) para armar las pestañas."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT Codigo, Nombre FROM Puntos ORDER BY Nombre")
         puntos = [{'codigo': fila[0], 'nombre': fila[1]} for fila in cursor.fetchall()]
         return puntos
 
 def getEstadoMesas(codigoPunto):
-    """Obtiene todas las mesas de un punto y fusiona las que tienen múltiples cuentas."""
+    """
+    LÓGICA ANTI-DUPLICADOS: Cruza Mesas con CtasMesas y ControlMesas.
+    Si una mesa tiene 3 cuentas divididas, las agrupa en 1 sola tarjeta en pantalla,
+    dando prioridad al color rojo (estado 'impresa').
+    """
     with connection.cursor() as cursor:
         sql = """
             SELECT 
@@ -99,7 +111,7 @@ def getEstadoMesas(codigoPunto):
             ORDER BY LEN(m.Mesa), m.Mesa
         """
         cursor.execute(sql, [codigoPunto])
-        mesas_dict = {} # Usamos un diccionario para evitar duplicados
+        mesas_dict = {} 
         
         for fila in cursor.fetchall():
             numeroMesa = fila[0].strip()
@@ -110,6 +122,7 @@ def getEstadoMesas(codigoPunto):
             usuarioBloqueo = fila[5]
             nombreGarzon = fila[6]
 
+            # Definir estado visual base
             estadoVisual = 'libre'
             if estadoCta == '0':
                 if cuentaImpresa == '1':
@@ -117,9 +130,8 @@ def getEstadoMesas(codigoPunto):
                 else:
                     estadoVisual = 'ocupada' 
 
-            # LÓGICA ANTI-DUPLICADOS:
             if numeroMesa not in mesas_dict:
-                # Si la mesa no existe, la creamos
+                # 1ra vez que vemos la mesa: La creamos
                 mesas_dict[numeroMesa] = {
                     'numero': numeroMesa,
                     'estado': estadoVisual,
@@ -129,7 +141,7 @@ def getEstadoMesas(codigoPunto):
                     'nombreGarzon': nombreGarzon.strip() if nombreGarzon else ""
                 }
             else:
-                # Si ya existe (tiene más de 1 cuenta), le damos prioridad al estado rojo (impresa)
+                # Ya existía (múltiples cuentas en 1 mesa): Priorizamos estado e incrementamos total
                 if estadoVisual == 'impresa':
                     mesas_dict[numeroMesa]['estado'] = 'impresa'
                 elif estadoVisual == 'ocupada' and mesas_dict[numeroMesa]['estado'] == 'libre':
@@ -137,13 +149,17 @@ def getEstadoMesas(codigoPunto):
                 
                 mesas_dict[numeroMesa]['total'] += total
                 
-                # Si esta subcuenta tiene el nombre del garzón, lo guardamos
+                # Rescatamos el garzón si la primera cuenta no lo tenía
                 if nombreGarzon and not mesas_dict[numeroMesa]['nombreGarzon']:
                     mesas_dict[numeroMesa]['nombreGarzon'] = nombreGarzon.strip()
             
-        # Convertimos el diccionario de vuelta a una lista para enviarlo al HTML
         return list(mesas_dict.values())
-    
+
+# =====================================================================
+# BLOQUE 3: GESTIÓN DE CUENTAS (Apertura, Cierre y Validaciones)
+# Administra la tabla CtasMesas y generación de Folios.
+# =====================================================================
+
 def obtener_cuenta_activa(punto, numero_mesa):
     """Busca si la mesa ya tiene una cuenta abierta."""
     with connection.cursor() as cursor:
@@ -154,25 +170,30 @@ def obtener_cuenta_activa(punto, numero_mesa):
         fila = cursor.fetchone()
         return fila[0] if fila else None
 
-def generar_nuevo_folio():
-    """Obtiene el último folio de NumTables, le suma 1 y lo actualiza."""
+def verificar_tiene_consumos(folio):
+    """LÓGICA: Verifica si la mesa está 'Fantasma' (abierta pero sin productos)."""
     with connection.cursor() as cursor:
-        # Obtenemos el último folio
+        cursor.execute("SELECT COUNT(*) FROM Consumos WHERE Folio = %s AND (sw IS NULL OR sw = '' OR sw = '0')", [folio])
+        return cursor.fetchone()[0] > 0
+
+def generar_nuevo_folio():
+    """Busca el último folio en NumTables, le suma 1, rellena con ceros (0000001) y reserva."""
+    with connection.cursor() as cursor:
         cursor.execute("SELECT MAX(CAST(Folio AS INT)) FROM NumTables")
         fila = cursor.fetchone()
         ultimo_folio = fila[0] if fila[0] else 0
         
         nuevo_folio_int = ultimo_folio + 1
-        nuevo_folio_str = str(nuevo_folio_int).zfill(7) # Rellena con ceros, ej: '0001234'
+        nuevo_folio_str = str(nuevo_folio_int).zfill(7) 
         
-        # Insertamos el nuevo folio en la tabla para reservarlo
         cursor.execute("INSERT INTO NumTables (Folio) VALUES (%s)", [nuevo_folio_str])
-        
         return nuevo_folio_str
 
 def obtener_garzon_usuario(usuario_id):
-    """Obtiene el código del garzón asociado al usuario. 
-       Si no tiene o es supervisor, retorna '000'."""
+    """
+    REGLA DE NEGOCIO: Transforma el Usuario web en Código de Garzón.
+    Si es un supervisor sin código propio, asigna venta directa ('000').
+    """
     with connection.cursor() as cursor:
         cursor.execute("SELECT Garzon, Supervisor FROM Usuarios WHERE Id = %s", [usuario_id])
         fila = cursor.fetchone()
@@ -181,17 +202,39 @@ def obtener_garzon_usuario(usuario_id):
             es_supervisor = fila[1]
             if garzon_cod and garzon_cod.strip():
                 return garzon_cod.strip()
-            if es_supervisor == 'S': # O el valor que indique 'Sí' en tu BD
+            if es_supervisor == 'S': 
                 return '000' 
-        return '000' # Por defecto, si hay algún error o no tiene.
+        return '000'
+
+def obtener_nombre_garzon(folio):
+    """Cruza CtasMesas con Garzones para imprimir el nombre real en el Ticket."""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            SELECT g.Nombre 
+            FROM CtasMesas c
+            JOIN Garzones g ON c.Garzon = g.Codigo
+            WHERE c.Folio = %s
+        """, [folio])
+        fila = cursor.fetchone()
+        return fila[0].strip() if fila else 'Sin Garzón'
+
+def obtener_cubiertos_cuenta(folio):
+    """Obtiene la cantidad de personas sentadas en la mesa."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Cubiertos FROM CtasMesas WHERE Folio = %s AND Status = '0'", [folio])
+        fila = cursor.fetchone()
+        return fila[0] if fila else 1
 
 def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
-    """Crea el registro inicial en CtasMesas usando la fecha del Turno."""
+    """
+    Genera el INSERT base en CtasMesas. 
+    Se encarga de limpiar los campos (sw vacío, cuenta vacía, etc) según el estándar de Visual Basic.
+    """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_actual = datos_turno['turno_texto'] 
     
-    # Mapeo inverso temporal (si en BD guardan el número y no el texto)
+    # Mapeo a BD (Por si se guarda número de turno y no nombre)
     turno_bd = '1'
     if turno_actual == 'Almuerzo': turno_bd = '2'
     elif turno_actual == 'Cena': turno_bd = '3'
@@ -200,7 +243,6 @@ def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
     garzon_id = obtener_garzon_usuario(usuario_id)
     
     with connection.cursor() as cursor:
-        # Nota: Se han quitado campos que no se deben enviar y se ha ajustado 'Cuenta' y 'sw'
         sql = """
             INSERT INTO CtasMesas (
                 Punto, Mesa, Garzon, Cubiertos, Hora, Status, Tipo, Docto, 
@@ -223,8 +265,20 @@ def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
         
     return nuevo_folio
 
+def anular_cuenta(folio):
+    """Acción rápida para mesas vacías: Pone sw='1' y libera el Status."""
+    with connection.cursor() as cursor:
+        sql = "UPDATE CtasMesas SET sw = '1', Status = '1' WHERE Folio = %s"
+        cursor.execute(sql, [folio])
+
+
+# =====================================================================
+# BLOQUE 4: CATÁLOGO DE MENÚ (Carga dinámica)
+# Trae las familias, grupos y productos filtrados por Punto de Venta.
+# =====================================================================
+
 def get_familias_punto(punto):
-    """Obtiene las Familias que tienen grupos disponibles en un Punto de Venta."""
+    """REGLA DE NEGOCIO: Solo trae familias que estén habilitadas para el Punto (GrupoPuntos)."""
     with connection.cursor() as cursor:
         sql = """
             SELECT DISTINCT f.Clase, f.NClase
@@ -237,7 +291,7 @@ def get_familias_punto(punto):
         return [{'clase': f[0], 'nombre': f[1].strip()} for f in cursor.fetchall()]
 
 def get_grupos_punto(punto, clase):
-    """Obtiene los Grupos de una Familia específica para un Punto de Venta."""
+    """Devuelve los grupos de una familia que están vigentes."""
     with connection.cursor() as cursor:
         sql = """
             SELECT g.Grupo, g.NGrupo
@@ -250,7 +304,10 @@ def get_grupos_punto(punto, clase):
         return [{'grupo': f[0], 'nombre': f[1].strip()} for f in cursor.fetchall()]
 
 def get_productos_grupo(punto, clase, grupo):
-    """Obtiene los Productos de un Grupo, cruzando con Tarifas para el precio."""
+    """
+    CRÍTICO: Cruza con la tabla Tarifas para obtener el valor real 
+    del producto en este punto de venta específico. Ignora dados de baja.
+    """
     with connection.cursor() as cursor:
         sql = """
             SELECT p.Producto, p.NProducto, t.Valor, p.Menu
@@ -261,18 +318,16 @@ def get_productos_grupo(punto, clase, grupo):
         """
         cursor.execute(sql, [clase, grupo, punto])
         return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': f[3] == '1'} for f in cursor.fetchall()]
-    
-def obtener_cubiertos_cuenta(folio):
-    """Obtiene la cantidad de cubiertos ingresados al abrir la cuenta."""
-    with connection.cursor() as cursor:
-        cursor.execute("SELECT Cubiertos FROM CtasMesas WHERE Folio = %s AND Status = '0'", [folio])
-        fila = cursor.fetchone()
-        return fila[0] if fila else 1
+
+
+# =====================================================================
+# BLOQUE 5: GESTIÓN DE LA COMANDA (Consumos)
+# Maneja la lectura, escritura y envío de platos a la tabla de Consumos.
+# =====================================================================
 
 def obtener_consumos_mesa(folio):
-    """Obtiene los productos que ya fueron enviados a la cocina (guardados en BD)."""
+    """Obtiene los productos guardados. Excluye los anulados por supervisor (sw=1)."""
     with connection.cursor() as cursor:
-        # Hacemos JOIN con Productos para traer el Nombre real del plato
         sql = """
             SELECT 
                 c.Producto, p.NProducto, c.Valor, c.Cantidad, 
@@ -298,13 +353,16 @@ def obtener_consumos_mesa(folio):
         return consumos
     
 def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id):
-    """Inserta o actualiza (suma) un producto en Consumos con Flag = '0'"""
+    """
+    LÓGICA UPSERT (OPTIMIZACIÓN):
+    Si el producto ya existe en el ticket y no ha sido comandado (Flag=0), 
+    le suma la cantidad (UPDATE). Si no existe, crea una línea nueva (INSERT).
+    """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
 
     with connection.cursor() as cursor:
-        # 1. VERIFICAR SI EL PRODUCTO YA EXISTE (y no ha sido comandado)
         cursor.execute("""
             SELECT SubIndice FROM Consumos 
             WHERE Folio = %s AND Producto = %s 
@@ -314,7 +372,6 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
         fila = cursor.fetchone()
 
         if fila:
-            # SI EXISTE: Actualizamos sumando la cantidad
             subindice = fila[0]
             cursor.execute("""
                 UPDATE Consumos 
@@ -322,7 +379,6 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                 WHERE SubIndice = %s
             """, [cantidad, subindice])
         else:
-            # NO EXISTE: Hacemos el INSERT normal que ya tenías
             cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
             fila_mesa = cursor.fetchone()
             mesa = fila_mesa[0] if fila_mesa else ''
@@ -350,7 +406,10 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
             ])
 
 def borrar_producto_consumo(folio, producto):
-    """Elimina físicamente de la BD un producto que AÚN NO ha sido comandado (Flag='0')"""
+    """
+    BORRADO FÍSICO: El garzón eliminó del carrito un producto que AÚN 
+    no había sido enviado a la cocina (Flag='0').
+    """
     with connection.cursor() as cursor:
         sql = """
             DELETE FROM Consumos 
@@ -359,17 +418,14 @@ def borrar_producto_consumo(folio, producto):
         cursor.execute(sql, [folio, producto])
 
 def comandar_ticket(folio):
-    """Pasa los productos nuevos de Flag '0' a '1' (Comandados)"""
+    """
+    BOTÓN CONFIRMAR: Pasa todos los productos en espera (Flag='0') 
+    al estado comandado (Flag='1'), bloqueando su eliminación por parte del garzón.
+    """
     with connection.cursor() as cursor:
         sql = """
             UPDATE Consumos 
             SET Flag = '1' 
             WHERE Folio = %s AND (Flag = '0' OR Flag IS NULL OR Flag = '')
         """
-        cursor.execute(sql, [folio])
-
-def anular_cuenta(folio):
-    """Anula la cuenta (sw='1') y libera la mesa (Status='1') si no hubo consumos"""
-    with connection.cursor() as cursor:
-        sql = "UPDATE CtasMesas SET sw = '1', Status = '1' WHERE Folio = %s"
         cursor.execute(sql, [folio])

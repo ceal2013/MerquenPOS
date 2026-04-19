@@ -109,7 +109,7 @@
                     <span class="badge bg-secondary fs-6">Folio: {{ folio }}</span>
                 </div>
                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.85rem;">
-                    <span><i class="fa-solid fa-user-tie"></i> {{ usuario.nombre }}</span>
+                    <span><i class="fa-solid fa-bell-concierge"></i> {{ nombre_garzon }}</span>
                     <span>Cubiertos: <strong id="lbl-cubiertos">{{ cubiertos }}</strong></span>
                 </div>
             </div>
@@ -391,20 +391,9 @@
 
         // --- LÓGICA DE CIERRE / ANULACIÓN ---
         function accionarCierre(accion) {
-            if (comanda.length === 0) {
-                // MESA VACÍA: Preguntar si anula
-                if (confirm("La mesa no tiene productos cargados.\n¿Desea anular la cuenta y liberar la mesa?")) {
-                    fetch('/pos/api/ticket/anular/', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                        body: JSON.stringify({folio: '{{ folio }}'})
-                    }).then(() => window.location.href = "{% url 'seleccion_mesas' %}");
-                } else {
-                    window.location.href = "{% url 'seleccion_mesas' %}";
-                }
-            } else {
-                if (accion === 'confirmar') {
-                    // Hay productos, pasamos a Flag 1
+            if (accion === 'confirmar') {
+                let itemsNuevos = comanda.filter(i => i.estado === 'nuevo');
+                if (itemsNuevos.length > 0) {
                     fetch('/pos/api/ticket/comandar/', {
                         method: 'POST',
                         headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
@@ -413,6 +402,9 @@
                 } else {
                     window.location.href = "{% url 'seleccion_mesas' %}";
                 }
+            } else {
+                // REGRESAR: Ahora simplemente sale.
+                window.location.href = "{% url 'seleccion_mesas' %}";
             }
         }
     </script>
