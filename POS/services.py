@@ -170,11 +170,26 @@ def generar_nuevo_folio():
         
         return nuevo_folio_str
 
-def crear_nueva_cuenta(punto, numero_mesa, garzon_id, cubiertos):
+def obtener_garzon_usuario(usuario_id):
+    """Obtiene el código del garzón asociado al usuario. 
+       Si no tiene o es supervisor, retorna '000'."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Garzon, Supervisor FROM Usuarios WHERE Id = %s", [usuario_id])
+        fila = cursor.fetchone()
+        if fila:
+            garzon_cod = fila[0]
+            es_supervisor = fila[1]
+            if garzon_cod and garzon_cod.strip():
+                return garzon_cod.strip()
+            if es_supervisor == 'S': # O el valor que indique 'Sí' en tu BD
+                return '000' 
+        return '000' # Por defecto, si hay algún error o no tiene.
+
+def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
     """Crea el registro inicial en CtasMesas usando la fecha del Turno."""
-    datos_turno = obtener_turno_activo() # Usamos la función que creamos antes
+    datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
-    turno_actual = datos_turno['turno_texto'] # Ojo: en tu BD quizás guardan 1, 2 o 3. Lo ajustamos si es necesario.
+    turno_actual = datos_turno['turno_texto'] 
     
     # Mapeo inverso temporal (si en BD guardan el número y no el texto)
     turno_bd = '1'
@@ -182,27 +197,28 @@ def crear_nueva_cuenta(punto, numero_mesa, garzon_id, cubiertos):
     elif turno_actual == 'Cena': turno_bd = '3'
 
     nuevo_folio = generar_nuevo_folio()
+    garzon_id = obtener_garzon_usuario(usuario_id)
     
     with connection.cursor() as cursor:
+        # Nota: Se han quitado campos que no se deben enviar y se ha ajustado 'Cuenta' y 'sw'
         sql = """
             INSERT INTO CtasMesas (
                 Punto, Mesa, Garzon, Cubiertos, Hora, Status, Tipo, Docto, 
-                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Cliente, Propina, 
+                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Propina, 
                 sw, Cuentas, Total, Convenio, Atencion, Habitacion, FolioCnv, 
                 Sucursal, Paquete, Admin, CCosto, Personal, TotalPersonal, 
-                Moneda, NombreCta, Usuario, Pc
+                Moneda
             ) VALUES (
                 %s, %s, %s, %s, CONVERT(varchar(5), GETDATE(), 108), '0', '', '', 
-                %s, %s, %s, 0, '0', '', 'Paso', 0, 
-                '0', 1, 0, 0, 0, 0, '', 
+                %s, %s, %s, 0, '', '', 0, 
+                '', 1, 0, 0, 0, 0, '', 
                 '', 0, 0, 0, 0, 0, 
-                'P', 'MESA ' + %s, %s, 'WEB_POS'
+                'P'
             )
         """
         cursor.execute(sql, [
             punto, numero_mesa, garzon_id, cubiertos, 
-            fecha_proceso, nuevo_folio, turno_bd, 
-            numero_mesa, garzon_id
+            fecha_proceso, nuevo_folio, turno_bd
         ])
         
     return nuevo_folio
