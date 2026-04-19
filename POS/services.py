@@ -298,45 +298,56 @@ def obtener_consumos_mesa(folio):
         return consumos
     
 def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id):
-    """Inserta un nuevo producto en la tabla Consumos con Flag = '0' (No comandado)"""
+    """Inserta o actualiza (suma) un producto en Consumos con Flag = '0'"""
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
-    turno_actual = datos_turno['turno_texto']
-    
-    turno_bd = '1'
-    if turno_actual == 'Almuerzo': turno_bd = '2'
-    elif turno_actual == 'Cena': turno_bd = '3'
+    turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
 
     with connection.cursor() as cursor:
-        # 1. Obtenemos el número de mesa real asociado a este folio
-        cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
-        fila_mesa = cursor.fetchone()
-        mesa = fila_mesa[0] if fila_mesa else ''
+        # 1. VERIFICAR SI EL PRODUCTO YA EXISTE (y no ha sido comandado)
+        cursor.execute("""
+            SELECT SubIndice FROM Consumos 
+            WHERE Folio = %s AND Producto = %s 
+              AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
+              AND (sw IS NULL OR sw = '' OR sw = '0')
+        """, [folio, producto])
+        fila = cursor.fetchone()
 
-        # 2. Calculamos el siguiente Indice para este folio
-        cursor.execute("SELECT ISNULL(MAX(Indice), 0) + 1 FROM Consumos WHERE Folio = %s", [folio])
-        fila_indice = cursor.fetchone()
-        nuevo_indice = fila_indice[0]
+        if fila:
+            # SI EXISTE: Actualizamos sumando la cantidad
+            subindice = fila[0]
+            cursor.execute("""
+                UPDATE Consumos 
+                SET Cantidad = Cantidad + %s 
+                WHERE SubIndice = %s
+            """, [cantidad, subindice])
+        else:
+            # NO EXISTE: Hacemos el INSERT normal que ya tenías
+            cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
+            fila_mesa = cursor.fetchone()
+            mesa = fila_mesa[0] if fila_mesa else ''
 
-        # 3. Insertamos respetando todos tus campos obligatorios
-        sql = """
-            INSERT INTO Consumos (
-                Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
-                Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
-                Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
-                Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
-            ) VALUES (
-                %s, %s, %s, %s, %s, %s, '', '', '',
-                '0', %s, %s, %s, %s, '', '0',
-                '', %s, %s, %s, %s, %s, %s,
-                '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
-            )
-        """
-        cursor.execute(sql, [
-            punto, mesa, grupo, producto, cantidad, precio,
-            folio, fecha_proceso, turno_bd, clase,
-            usuario_id, clase, grupo, producto, nuevo_indice, precio
-        ])
+            cursor.execute("SELECT ISNULL(MAX(Indice), 0) + 1 FROM Consumos WHERE Folio = %s", [folio])
+            nuevo_indice = cursor.fetchone()[0]
+
+            sql = """
+                INSERT INTO Consumos (
+                    Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
+                    Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
+                    Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
+                    Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, '', '', '',
+                    '0', %s, %s, %s, %s, '', '0',
+                    '', %s, %s, %s, %s, %s, %s,
+                    '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
+                )
+            """
+            cursor.execute(sql, [
+                punto, mesa, grupo, producto, cantidad, precio,
+                folio, fecha_proceso, turno_bd, clase,
+                usuario_id, clase, grupo, producto, nuevo_indice, precio
+            ])
 
 def borrar_producto_consumo(folio, producto):
     """Elimina físicamente de la BD un producto que AÚN NO ha sido comandado (Flag='0')"""
