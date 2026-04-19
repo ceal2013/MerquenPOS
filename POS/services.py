@@ -222,3 +222,42 @@ def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
         ])
         
     return nuevo_folio
+
+def get_familias_punto(punto):
+    """Obtiene las Familias que tienen grupos disponibles en un Punto de Venta."""
+    with connection.cursor() as cursor:
+        sql = """
+            SELECT DISTINCT f.Clase, f.NClase
+            FROM Familias f
+            JOIN GrupoPuntos gp ON f.Clase = gp.Clase
+            WHERE gp.Punto = %s
+            ORDER BY f.NClase
+        """
+        cursor.execute(sql, [punto])
+        return [{'clase': f[0], 'nombre': f[1].strip()} for f in cursor.fetchall()]
+
+def get_grupos_punto(punto, clase):
+    """Obtiene los Grupos de una Familia específica para un Punto de Venta."""
+    with connection.cursor() as cursor:
+        sql = """
+            SELECT g.Grupo, g.NGrupo
+            FROM Grupos g
+            JOIN GrupoPuntos gp ON g.Grupo = gp.Grupo AND g.Clase = gp.Clase
+            WHERE gp.Punto = %s AND g.Clase = %s AND g.Vigente = 'S'
+            ORDER BY g.NGrupo
+        """
+        cursor.execute(sql, [punto, clase])
+        return [{'grupo': f[0], 'nombre': f[1].strip()} for f in cursor.fetchall()]
+
+def get_productos_grupo(punto, clase, grupo):
+    """Obtiene los Productos de un Grupo, cruzando con Tarifas para el precio."""
+    with connection.cursor() as cursor:
+        sql = """
+            SELECT p.Producto, p.NProducto, t.Valor, p.Menu
+            FROM Productos p
+            JOIN Tarifas t ON p.Producto = t.Codigo AND p.Clase = t.Clase AND p.Grupo = t.Grupo
+            WHERE p.Clase = %s AND p.Grupo = %s AND t.Punto = %s AND p.Baja <> 'S'
+            ORDER BY p.NProducto
+        """
+        cursor.execute(sql, [clase, grupo, punto])
+        return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': f[3] == '1'} for f in cursor.fetchall()]
