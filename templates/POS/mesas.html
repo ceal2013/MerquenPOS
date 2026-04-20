@@ -110,9 +110,12 @@
                                         {% if mesa.estado == 'libre' %}
                                             <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
                                         {% else %}
-                                            <p class="mesa-estado-texto" title="{{ mesa.usuarioBloqueo|default:'Ocupada' }}">
-                                                <i class="fa-solid fa-user me-1"></i> 
-                                                {% if mesa.usuarioBloqueo %} {{ mesa.usuarioBloqueo }} {% else %} Ocupada {% endif %}
+                                            <p class="mesa-estado-texto" title="Atendida por: {{ mesa.nombreGarzon|default:'Ocupada' }}">
+                                                <i class="fa-solid fa-clipboard-user me-1"></i> {% if mesa.nombreGarzon %} 
+                                                    {{ mesa.nombreGarzon }} 
+                                                {% else %} 
+                                                    Ocupada 
+                                                {% endif %}
                                             </p>
                                         {% endif %}
                                     </div>
