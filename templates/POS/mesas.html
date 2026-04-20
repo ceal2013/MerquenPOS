@@ -27,178 +27,65 @@
             --text-impresa: #7f1d1d;
         }
 
-        body {
-            background-color: var(--color-fondo);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            min-height: 100vh; /* Permite que el footer se quede al fondo */
-        }
-
-        /* --- Barra Superior --- */
-        .topbar {
-            background-color: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            padding: 10px 20px;
-        }
-
-        .info-turno {
-            font-size: 1rem; /* Aumentado para equilibrar con el título */
-            color: #334155;
-            background-color: #f8fafc;
-            padding: 6px 18px; 
-            border-radius: 30px; /* Más redondeado y moderno */
-            font-weight: 600;
-            border: 1px solid #e2e8f0; /* Borde sutil */
-        }
-        .info-turno i {
-            color: var(--color-primario); /* Íconos en color Guinda Merquén */
-        }
-
-        /* --- Estilos de Pestañas --- */
-        .nav-tabs {
-            border-bottom: 2px solid #e2e8f0;
-            margin-bottom: 15px; /* Reducido para ahorrar espacio */
-        }
+        body { background-color: var(--color-fondo); font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; min-height: 100vh; }
         
-        .nav-tabs .nav-link {
-            color: #64748b;
-            font-weight: 600;
-            font-size: 1rem;
-            border: none;
-            padding: 12px 20px;
-            border-bottom: 3px solid transparent;
-        }
-        
-        .nav-tabs .nav-link.active {
-            color: var(--color-primario);
-            background-color: transparent;
-            border-bottom: 3px solid var(--color-primario);
-        }
+        .topbar { background-color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 10px 20px; }
+        .info-turno { font-size: 1rem; color: #334155; background-color: #f8fafc; padding: 6px 18px; border-radius: 30px; font-weight: 600; border: 1px solid #e2e8f0; }
+        .info-turno i { color: var(--color-primario); }
 
-        /* --- Tarjetas de Mesas (REDUCIDAS) --- */
-        .mesa-card {
-            border-radius: 10px;
-            text-align: center;
-            padding: 15px 5px; /* Padding mucho menor */
-            cursor: pointer;
-            transition: transform 0.1s, box-shadow 0.1s;
-            position: relative; 
-            height: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-            user-select: none; /* Evita que el texto se seleccione al hacer doble clic */
-        }
+        .nav-tabs { border-bottom: 2px solid #e2e8f0; margin-bottom: 15px; }
+        .nav-tabs .nav-link { color: #64748b; font-weight: 600; font-size: 1rem; border: none; padding: 12px 20px; border-bottom: 3px solid transparent; }
+        .nav-tabs .nav-link.active { color: var(--color-primario); background-color: transparent; border-bottom: 3px solid var(--color-primario); }
 
-        .mesa-card:active {
-            transform: scale(0.96);
-        }
+        .mesa-card { border-radius: 10px; text-align: center; padding: 15px 5px; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); user-select: none; }
+        .mesa-card:active { transform: scale(0.96); }
+        .mesa-numero { font-size: 2.2rem; font-weight: 700; margin-bottom: 2px; line-height: 1; }
+        .mesa-estado-texto { font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 5px; margin-bottom: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .mesa-numero {
-            font-size: 2.2rem; /* Fuente reducida */
-            font-weight: 700;
-            margin-bottom: 2px;
-            line-height: 1;
-        }
+        .estado-libre { background-color: var(--bg-libre); border: 2px solid var(--border-libre); color: var(--text-libre); }
+        .estado-ocupada { background-color: var(--bg-ocupada); border: 2px solid var(--border-ocupada); color: var(--text-ocupada); }
+        .estado-impresa { background-color: var(--bg-impresa); border: 2px solid var(--border-impresa); color: var(--text-impresa); }
+        .bloqueo-badge { position: absolute; top: 5px; right: 5px; background-color: white; color: var(--color-primario); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
 
-        .mesa-estado-texto {
-            font-size: 0.85rem; /* Fuente reducida */
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-top: 5px;
-            margin-bottom: 0;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis; /* Para nombres de garzones muy largos */
-        }
+        .footer-corporativo { background-color: white; border-top: 1px solid #e2e8f0; padding: 10px 0; margin-top: auto; }
+        .footer-texto { font-size: 0.8rem; color: #94a3b8; margin: 0; font-weight: 600; }
 
-        .estado-libre { 
-            background-color: var(--bg-libre); 
-            border: 2px solid var(--border-libre);
-            color: var(--text-libre);
-        }
-        .estado-ocupada { 
-            background-color: var(--bg-ocupada); 
-            border: 2px solid var(--border-ocupada);
-            color: var(--text-ocupada);
-        }
-        .estado-impresa { 
-            background-color: var(--bg-impresa); 
-            border: 2px solid var(--border-impresa);
-            color: var(--text-impresa);
-        }
-
-        .bloqueo-badge {
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background-color: white;
-            color: var(--color-primario);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.75rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
-        }
-
-        /* --- Footer Corporativo --- */
-        .footer-corporativo {
-            background-color: white;
-            border-top: 1px solid #e2e8f0;
-            padding: 10px 0;
-            margin-top: auto; /* Empuja el footer al final de la página */
-        }
-        .footer-texto {
-            font-size: 0.8rem;
-            color: #94a3b8;
-            margin: 0;
-            font-weight: 600;
-        }
+        /* Estilos del Teclado del Modal */
+        .pantalla-cubiertos { background-color: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; font-size: 2.5rem; font-weight: 700; color: var(--color-primario); text-align: right; margin-bottom: 15px; height: 70px; display: flex; align-items: center; justify-content: flex-end; }
+        .btn-tecla { height: 60px; font-size: 1.5rem; font-weight: bold; border-radius: 12px; color: #334155; background-color: white; border: 2px solid #e2e8f0; transition: all 0.1s; }
+        .btn-tecla:active { background-color: #f1f5f9; transform: scale(0.95); border-color: #cbd5e1; }
+        .tecla-borrar { color: #ef4444; }
+        .tecla-aceptar { background-color: #10b981; color: white; border: none; }
+        .tecla-aceptar:active { background-color: #059669; }
     </style>
 </head>
 <body>
 
     <div class="topbar d-flex justify-content-between align-items-center sticky-top gap-2">
-        
         <div class="d-flex align-items-center">
             <img src="{% static 'logomerquen.png' %}" alt="Logo" style="height: 35px; margin-right: 10px;">
             <h5 class="mb-0 fw-bold d-none d-lg-block text-dark">{{ nombre_local }}</h5>
         </div>
-        
         <div class="info-turno d-flex align-items-center shadow-sm text-nowrap">
             <i class="fa-regular fa-calendar-days me-2"></i> 
             <span class="d-none d-sm-inline">{{ fecha_proceso|date:"d/m/Y" }}</span>
             <span class="d-sm-none">{{ fecha_proceso|date:"d/m" }}</span> <span class="mx-2 text-secondary">|</span>
             <i class="fa-regular fa-clock me-2"></i> {{ turno_activo }}
         </div>
-
         <div class="text-end text-nowrap">
             <span class="text-secondary fw-semibold me-2 d-none d-md-inline"><i class="fa-solid fa-user me-1"></i> {{ usuario.nombre }}</span>
             <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm fw-bold">Salir</a>
         </div>
-        
     </div>
 
     <div class="container-fluid py-3 px-md-4 mb-4">
-        
         {% if error %}
             <div class="alert alert-danger">{{ error }}</div>
         {% else %}
-        
             <ul class="nav nav-tabs justify-content-center" id="puntosVentaTab" role="tablist">
                 {% for punto in puntos_con_mesas %}
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link {% if forloop.first %}active{% endif %}" 
-                                id="tab-{{ punto.codigo }}" 
-                                data-bs-toggle="tab" 
-                                data-bs-target="#panel-{{ punto.codigo }}" 
-                                type="button" role="tab">
+                        <button class="nav-link {% if forloop.first %}active{% endif %}" id="tab-{{ punto.codigo }}" data-bs-toggle="tab" data-bs-target="#panel-{{ punto.codigo }}" type="button" role="tab">
                             {{ punto.nombre }}
                         </button>
                     </li>
@@ -207,21 +94,15 @@
 
             <div class="tab-content" id="puntosVentaTabContent">
                 {% for punto in puntos_con_mesas %}
-                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
-                         id="panel-{{ punto.codigo }}" 
-                         role="tabpanel" tabindex="0">
-                        
+                    <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" id="panel-{{ punto.codigo }}" role="tabpanel" tabindex="0">
                         <div class="row row-cols-3 row-cols-sm-4 row-cols-md-5 row-cols-lg-6 row-cols-xl-8 g-2">
-                            
                             {% for mesa in punto.mesas %}
                                 <div class="col">
                                     <div class="mesa-card estado-{{ mesa.estado }}" 
-                                         ondblclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}')">
+                                         ondblclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}', '{{ mesa.estado }}')">
                                         
                                         {% if mesa.bloqueada %}
-                                            <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
-                                                <i class="fa-solid fa-lock"></i>
-                                            </div>
+                                            <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}"><i class="fa-solid fa-lock"></i></div>
                                         {% endif %}
 
                                         <p class="mesa-numero">{{ mesa.numero }}</p>
@@ -231,53 +112,76 @@
                                         {% else %}
                                             <p class="mesa-estado-texto" title="{{ mesa.usuarioBloqueo|default:'Ocupada' }}">
                                                 <i class="fa-solid fa-user me-1"></i> 
-                                                {% if mesa.usuarioBloqueo %}
-                                                    {{ mesa.usuarioBloqueo }}
-                                                {% else %}
-                                                    Ocupada
-                                                {% endif %}
+                                                {% if mesa.usuarioBloqueo %} {{ mesa.usuarioBloqueo }} {% else %} Ocupada {% endif %}
                                             </p>
                                         {% endif %}
-                                        
                                     </div>
                                 </div>
                             {% empty %}
-                                <div class="col-12">
-                                    <p class="text-muted text-center py-5">No hay mesas configuradas en este sector.</p>
-                                </div>
+                                <div class="col-12"><p class="text-muted text-center py-5">No hay mesas configuradas en este sector.</p></div>
                             {% endfor %}
-
                         </div> 
-
                     </div>
                 {% endfor %}
             </div>
-
         {% endif %}
     </div>
 
-    <footer class="footer-corporativo text-center">
-        <div class="container">
-            <p class="footer-texto">
-                <i class="fa-solid fa-code me-1"></i> Desarrollado por <strong>Andes Systems</strong> &copy; {% now "Y" %}. Todos los derechos reservados.
-            </p>
+    <div class="modal fade" id="modalCubiertos" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-body p-4">
+                    <div class="text-center mb-3">
+                        <h4 class="fw-bold text-dark mb-0">Mesa <span id="lbl-mesa-modal"></span></h4>
+                        <small class="text-secondary">Ingrese cantidad de cubiertos</small>
+                    </div>
+
+                    <div class="pantalla-cubiertos" id="displayCubiertos"></div>
+
+                    <form id="formCubiertos" method="POST" action="">
+                        {% csrf_token %}
+                        <input type="hidden" name="cubiertos" id="inputCubiertos" value="">
+                    </form>
+
+                    <div class="row g-2">
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('7')">7</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('8')">8</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('9')">9</button></div>
+                        
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('4')">4</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('5')">5</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('6')">6</button></div>
+                        
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('1')">1</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('2')">2</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('3')">3</button></div>
+                        
+                        <div class="col-4"><button type="button" class="btn btn-tecla tecla-borrar w-100" onclick="borrarNumero()"><i class="fa-solid fa-delete-left"></i></button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumero('0')">0</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla tecla-aceptar w-100" onclick="confirmarYEnviar()"><i class="fa-solid fa-check"></i></button></div>
+                    </div>
+                    
+                    <button type="button" class="btn btn-outline-secondary w-100 mt-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
         </div>
+    </div>
+
+    <footer class="footer-corporativo text-center">
+        <div class="container"><p class="footer-texto"><i class="fa-solid fa-code me-1"></i> Desarrollado por <strong>Andes Systems</strong> &copy; {% now "Y" %}. Todos los derechos reservados.</p></div>
     </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Función activada por Doble Clic / Doble Toque
-        function abrirMesa(punto, numero, estaBloqueada, usuarioBloqueo) {
-            if (estaBloqueada === 'True') {
-                alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
-                return;
-            }
-            window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
-        }
+        let modalCubiertosObj;
+        let valorActual = "";
+        const display = document.getElementById('displayCubiertos');
 
-        // --- NUEVO: Lógica para recordar la pestaña activa ---
         document.addEventListener('DOMContentLoaded', function() {
-            // 1. Leer si hay una pestaña guardada en la memoria del navegador
+            // Inicializar el modal de Bootstrap
+            modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos'));
+
+            // Recordar Pestaña (Código Anterior)
             let activeTab = localStorage.getItem('activeTab_Mesas');
             if (activeTab) {
                 let tabElement = document.getElementById('tab-' + activeTab);
@@ -286,8 +190,6 @@
                     tab.show();
                 }
             }
-
-            // 2. Escuchar cada vez que el usuario cambia de pestaña y guardarlo
             let tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
             tabs.forEach(t => {
                 t.addEventListener('shown.bs.tab', function(e) {
@@ -296,6 +198,51 @@
                 });
             });
         });
+
+        // --- LÓGICA DE APERTURA ---
+        function abrirMesa(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
+            if (estaBloqueada === 'True') {
+                alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
+                return;
+            }
+
+            if (estadoVisual === 'libre') {
+                // MESA LIBRE: Configuramos el formulario del Modal y lo mostramos instantáneamente
+                document.getElementById('formCubiertos').action = '/pos/mesa/' + punto + '/' + numero + '/';
+                document.getElementById('lbl-mesa-modal').innerText = numero;
+                valorActual = ""; // Limpiamos la pantalla de la calculadora
+                actualizarPantalla();
+                modalCubiertosObj.show();
+            } else {
+                // MESA OCUPADA: Vamos directo a la lógica de Python (Comanda o Pregunta Anular)
+                window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
+            }
+        }
+
+        // --- LÓGICA DE LA CALCULADORA DEL MODAL ---
+        function actualizarPantalla() { display.innerText = valorActual === "" ? "" : valorActual; }
+        
+        function agregarNumero(num) {
+            if (valorActual === "" && num === "0") return;
+            if (valorActual.length >= 3) return;
+            valorActual += num;
+            actualizarPantalla();
+        }
+
+        function borrarNumero() {
+            valorActual = valorActual.slice(0, -1);
+            actualizarPantalla();
+        }
+
+        function confirmarYEnviar() {
+            if (valorActual === "" || parseInt(valorActual) === 0) {
+                alert("Debe ingresar al menos 1 cubierto.");
+                return;
+            }
+            // Envia el formulario como si fuera una página nueva hacia el backend
+            document.getElementById('inputCubiertos').value = valorActual;
+            document.getElementById('formCubiertos').submit();
+        }
     </script>
 </body>
 </html>
