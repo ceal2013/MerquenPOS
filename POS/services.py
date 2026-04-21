@@ -98,6 +98,8 @@ def getEstadoMesas(codigoPunto):
                 cm.Status AS MesaBloqueada,
                 u.Nombre AS UsuarioBloqueo,
                 g.Nombre AS NombreGarzon
+                c.Fecha,
+                c.Hora
             FROM Mesas m
             LEFT JOIN CtasMesas c 
                 ON m.Mesa = c.Mesa AND m.Punto = c.Punto AND c.Status = '0'
@@ -121,6 +123,8 @@ def getEstadoMesas(codigoPunto):
             mesaBloqueada = fila[4]
             usuarioBloqueo = fila[5]
             nombreGarzon = fila[6]
+            fecha_cta = fila[7]
+            hora_cta = fila[8]
 
             # Definir estado visual base
             estadoVisual = 'libre'
@@ -138,7 +142,9 @@ def getEstadoMesas(codigoPunto):
                     'total': total,
                     'bloqueada': True if str(mesaBloqueada) == '1' else False,
                     'usuarioBloqueo': usuarioBloqueo.strip() if usuarioBloqueo else "",
-                    'nombreGarzon': nombreGarzon.strip() if nombreGarzon else ""
+                    'nombreGarzon': nombreGarzon.strip() if nombreGarzon else "",
+                    'fecha': fecha_cta.strftime("%d/%m") if fecha_cta else "",
+                    'hora': hora_cta if hora_cta else ""
                 }
             else:
                 # Ya existía (múltiples cuentas en 1 mesa): Priorizamos estado e incrementamos total
