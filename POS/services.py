@@ -97,7 +97,7 @@ def getEstadoMesas(codigoPunto):
                 c.Total,
                 cm.Status AS MesaBloqueada,
                 u.Nombre AS UsuarioBloqueo,
-                g.Nombre AS NombreGarzon
+                g.Nombre AS NombreGarzon,
                 c.Fecha,
                 c.Hora
             FROM Mesas m
