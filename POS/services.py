@@ -385,14 +385,14 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                 WHERE SubIndice = %s
             """, [cantidad, subindice])
         else:
+            # NO EXISTE: Hacemos el INSERT normal.
             cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
             fila_mesa = cursor.fetchone()
             mesa = fila_mesa[0] if fila_mesa else ''
 
-            cursor.execute("SELECT ISNULL(MAX(Indice), 0) + 1 FROM Consumos WHERE Folio = %s", [folio])
-            nuevo_indice = cursor.fetchone()[0]
-
-            sql = """
+            # 1. Insertamos el producto (Enviamos Indice temporalmente como 0)
+            # NOTA: SubIndice NO se envía porque es Autonumérico (Identity)
+            sql_insert = """
                 INSERT INTO Consumos (
                     Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
                     Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
@@ -401,15 +401,24 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                 ) VALUES (
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
-                    '', %s, %s, %s, %s, %s, %s,
+                    '', %s, %s, %s, %s, 0, %s,
                     '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
                 )
             """
-            cursor.execute(sql, [
+            cursor.execute(sql_insert, [
                 punto, mesa, grupo, producto, cantidad, precio,
                 folio, fecha_proceso, turno_bd, clase,
-                usuario_id, clase, grupo, producto, nuevo_indice, precio
+                usuario_id, clase, grupo, producto, precio
             ])
+
+            # 2. Rescatamos el SubIndice que SQL Server acaba de crear automáticamente
+            cursor.execute("SELECT SCOPE_IDENTITY()")
+            subindice_generado = cursor.fetchone()[0]
+
+            # 3. Igualamos el Indice al SubIndice
+            if subindice_generado:
+                cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", 
+                               [subindice_generado, subindice_generado])
 
 def borrar_producto_consumo(folio, producto):
     """
@@ -425,13 +434,82 @@ def borrar_producto_consumo(folio, producto):
 
 def comandar_ticket(folio):
     """
-    BOTÓN CONFIRMAR: Pasa todos los productos en espera (Flag='0') 
-    al estado comandado (Flag='1'), bloqueando su eliminación por parte del garzón.
+    ========================================================
+    LÓGICA DE DESPACHO A IMPRESORAS Y COMANDAS:
+    1. Lee los productos que están pendientes de comandar (Flag='0').
+    2. Revisa las reglas de 'Despacho' y 'Despacho2' del Catálogo de Productos.
+    3. Copia el pedido a las tablas (PCocina, PBar, etc.) para el motor de impresión VB.
+    4. Sella los productos cambiando Flag='0' a Flag='1'.
+    ========================================================
     """
+    # Diccionario de destinos: Mapea el número de Despacho con la tabla real
+    destinos_impresion = {
+        1: 'PCocina',
+        2: 'PBar',
+        3: 'PParrilla',
+        4: 'PReposteria',
+        5: 'PFrio'
+    }
+
+    def parse_despacho(valor):
+        """Función interna para evitar errores si el Despacho viene vacío o con letras"""
+        try:
+            return int(valor)
+        except (ValueError, TypeError):
+            return 0
+
     with connection.cursor() as cursor:
-        sql = """
+        
+        # PASO 1: Obtener productos no comandados y cruzar con la tabla Productos
+        sql_nuevos = """
+            SELECT 
+                c.Indice, c.SubIndice, c.Cantidad, c.Folio, c.Nota,
+                p.NProducto, p.Menu, p.Despacho, p.Despacho2
+            FROM Consumos c
+            JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
+            WHERE c.Folio = %s AND (c.Flag = '0' OR c.Flag IS NULL OR c.Flag = '')
+        """
+        cursor.execute(sql_nuevos, [folio])
+        productos_a_despachar = cursor.fetchall()
+
+        # PASO 2: Repartir cada producto a sus áreas de impresión
+        for prod in productos_a_despachar:
+            indice = prod[0]
+            subindice = prod[1]
+            cantidad = prod[2]
+            folio_consumo = prod[3]
+            nota = prod[4] if prod[4] else ''
+            nombre_producto = prod[5]
+            es_menu = prod[6]
+            desp1 = parse_despacho(prod[7])
+            desp2 = parse_despacho(prod[8])
+
+            # Usamos un 'Set' (conjunto) para evitar que si desp1 y desp2 son iguales, 
+            # se imprima dos veces en la misma zona.
+            tablas_a_insertar = set()
+            if desp1 in destinos_impresion:
+                tablas_a_insertar.add(destinos_impresion[desp1])
+            if desp2 in destinos_impresion:
+                tablas_a_insertar.add(destinos_impresion[desp2])
+
+            # Insertamos en cada tabla requerida
+            for nombre_tabla in tablas_a_insertar:
+                # Al armar SQL dinámico, el nombre de la tabla no puede ser un parámetro %s por seguridad/sintaxis,
+                # se inyecta directamente con f-strings (esto es seguro porque viene de nuestro propio diccionario hardcodeado)
+                sql_insert_despacho = f"""
+                    INSERT INTO {nombre_tabla} 
+                    (Indice, SubIndice, Nproducto, Cantidad, folio, menu, nota)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """
+                cursor.execute(sql_insert_despacho, [
+                    indice, subindice, nombre_producto, cantidad, 
+                    folio_consumo, es_menu, nota
+                ])
+
+        # PASO 3: BOTÓN CONFIRMAR: Cambia todo a Flag '1' (Comandados) bloqueándolos para el garzón
+        sql_update_flag = """
             UPDATE Consumos 
             SET Flag = '1' 
             WHERE Folio = %s AND (Flag = '0' OR Flag IS NULL OR Flag = '')
         """
-        cursor.execute(sql, [folio])
+        cursor.execute(sql_update_flag, [folio])
