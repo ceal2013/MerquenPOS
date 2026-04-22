@@ -311,18 +311,30 @@ def get_grupos_punto(punto, clase):
 
 def get_productos_grupo(punto, clase, grupo):
     """
-    CRÍTICO: Cruza con la tabla Tarifas para obtener el valor real 
-    del producto en este punto de venta específico. Ignora dados de baja.
+    Catálogo de Productos:
+    Intenta obtener el precio de la tabla Tarifas para el Punto de Venta.
+    Si el producto no tiene una tarifa específica configurada, 
+    utiliza el Valor unitario base de la tabla Productos (LEFT JOIN + ISNULL).
     """
     with connection.cursor() as cursor:
         sql = """
-            SELECT p.Producto, p.NProducto, t.Valor, p.Menu
+            SELECT 
+                p.Producto, 
+                p.NProducto, 
+                ISNULL(t.Valor, p.Valor) AS PrecioUnitario, 
+                p.Menu
             FROM Productos p
-            JOIN Tarifas t ON p.Producto = t.Codigo AND p.Clase = t.Clase AND p.Grupo = t.Grupo
-            WHERE p.Clase = %s AND p.Grupo = %s AND t.Punto = %s AND p.Baja <> 'S'
+            LEFT JOIN Tarifas t 
+                ON p.Producto = t.Codigo 
+                AND p.Clase = t.Clase 
+                AND p.Grupo = t.Grupo 
+                AND t.Punto = %s
+            WHERE p.Clase = %s 
+              AND p.Grupo = %s 
+              AND p.Baja <> 'S'
             ORDER BY p.NProducto
         """
-        cursor.execute(sql, [clase, grupo, punto])
+        cursor.execute(sql, [punto, clase, grupo])
         return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': f[3] == '1'} for f in cursor.fetchall()]
 
 
@@ -385,37 +397,40 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                 WHERE SubIndice = %s
             """, [cantidad, subindice])
         else:
-            # NO EXISTE: Hacemos el INSERT normal.
+            # LÓGICA DE INSERCIÓN: Producto nuevo en el ticket
             cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
             fila_mesa = cursor.fetchone()
             mesa = fila_mesa[0] if fila_mesa else ''
 
-            # 1. Insertamos el producto (Enviamos Indice temporalmente como 0)
-            # NOTA: SubIndice NO se envía porque es Autonumérico (Identity)
+            # Uso de la cláusula 'OUTPUT INSERTED.SubIndice' para capturar 
+            # de forma segura e instantánea el ID autonumérico generado por SQL Server.
+            # Nota: La variable 'precio' inyectada es estrictamente el Valor Unitario.
             sql_insert = """
                 INSERT INTO Consumos (
                     Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
                     Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
                     Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
                     Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
-                ) VALUES (
+                ) 
+                OUTPUT INSERTED.SubIndice
+                VALUES (
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
                     '', %s, %s, %s, %s, 0, %s,
                     '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
                 )
             """
+            
             cursor.execute(sql_insert, [
                 punto, mesa, grupo, producto, cantidad, precio,
                 folio, fecha_proceso, turno_bd, clase,
                 usuario_id, clase, grupo, producto, precio
             ])
-
-            # 2. Rescatamos el SubIndice que SQL Server acaba de crear automáticamente
-            cursor.execute("SELECT SCOPE_IDENTITY()")
+            
+            # Capturamos el ID recién creado
             subindice_generado = cursor.fetchone()[0]
 
-            # 3. Igualamos el Indice al SubIndice
+            # Actualizamos el campo Indice para que sea igual al SubIndice autonumérico
             if subindice_generado:
                 cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", 
                                [subindice_generado, subindice_generado])
