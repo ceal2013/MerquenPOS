@@ -96,21 +96,31 @@
         .btn-producto { background-color: var(--color-producto); color: #334155; border: 2px solid #cbd5e1; }
         .btn-volver { background-color: #64748b; color: white; height: 100%; border-radius: 8px;}
         .d-none { display: none !important; }
+    
+        /* --- ESTILOS DEL MODAL DE CUBIERTOS --- */
+        .pantalla-cubiertos { background-color: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; font-size: 2.5rem; font-weight: 700; color: var(--color-primario); text-align: right; margin-bottom: 15px; height: 70px; display: flex; align-items: center; justify-content: flex-end; }
+        .btn-tecla { height: 60px; font-size: 1.5rem; font-weight: bold; border-radius: 12px; color: #334155; background-color: white; border: 2px solid #e2e8f0; transition: all 0.1s; }
+        .btn-tecla:active { background-color: #f1f5f9; transform: scale(0.95); border-color: #cbd5e1; }
+        .tecla-borrar { color: #ef4444; }
+        .tecla-aceptar { background-color: #10b981; color: white; border: none; }
+        .tecla-aceptar:active { background-color: #059669; }
     </style>
 </head>
 <body>
 
     <div class="pos-container">
         
-        <div class="panel-ticket">
-            <div class="ticket-header">
+        <div class="ticket-header">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <h5 class="fw-bold text-dark mb-0">Mesa {{ numero }}</h5>
                     <span class="badge bg-secondary fs-6">Folio: {{ folio }}</span>
                 </div>
                 <div class="d-flex justify-content-between text-muted" style="font-size: 0.85rem;">
                     <span><i class="fa-solid fa-clipboard-user"></i> {{ nombre_garzon }}</span>
-                    <span>Cubiertos: <strong id="lbl-cubiertos">{{ cubiertos }}</strong></span>
+                    <span style="cursor: pointer;" ondblclick="abrirModalCubiertos()" title="Doble clic para modificar">
+                        <i class="fa-solid fa-utensils me-1"></i>
+                        <strong id="lbl-cubiertos">{{ cubiertos }}</strong>
+                    </span>
                 </div>
             </div>
 
@@ -204,6 +214,36 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalCubiertos" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-body p-4">
+                    <div class="text-center mb-3">
+                        <h5 class="fw-bold text-dark mb-0">Modificar Cubiertos</h5>
+                    </div>
+                    <div class="pantalla-cubiertos" id="displayCubiertos"></div>
+                    <div class="row g-2">
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('7')">7</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('8')">8</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('9')">9</button></div>
+                        
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('4')">4</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('5')">5</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('6')">6</button></div>
+                        
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('1')">1</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('2')">2</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('3')">3</button></div>
+                        
+                        <div class="col-4"><button type="button" class="btn btn-tecla tecla-borrar w-100" onclick="borrarNumeroCubierto()"><i class="fa-solid fa-delete-left"></i></button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('0')">0</button></div>
+                        <div class="col-4"><button type="button" class="btn btn-tecla tecla-aceptar w-100" onclick="confirmarCubiertos()"><i class="fa-solid fa-check"></i></button></div>
+                    </div>
+                    <button type="button" class="btn btn-outline-secondary w-100 mt-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
+                </div>
+            </div>
+        </div>
+    </div>
     {{ consumos_previos|json_script:"consumos-data" }}
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -231,6 +271,8 @@
         }));
         
         let modalNotaObj = new bootstrap.Modal(document.getElementById('modalNota'));
+        let modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos')); // NUEVO
+        let valorCubiertos = ""; // NUEVO
 
         document.addEventListener("DOMContentLoaded", function() { renderizarTicket(); });
 
@@ -424,6 +466,46 @@
                 // REGRESAR: Ahora simplemente sale.
                 window.location.href = "{% url 'seleccion_mesas' %}";
             }
+        }
+        
+        // --- LÓGICA DE MODIFICACIÓN DE CUBIERTOS ---
+        function abrirModalCubiertos() {
+            valorCubiertos = "";
+            document.getElementById('displayCubiertos').innerText = "";
+            modalCubiertosObj.show();
+        }
+
+        function agregarNumeroCubierto(num) {
+            if (valorCubiertos === "" && num === "0") return;
+            if (valorCubiertos.length >= 3) return;
+            valorCubiertos += num;
+            document.getElementById('displayCubiertos').innerText = valorCubiertos;
+        }
+
+        function borrarNumeroCubierto() {
+            valorCubiertos = valorCubiertos.slice(0, -1);
+            document.getElementById('displayCubiertos').innerText = valorCubiertos;
+        }
+
+        function confirmarCubiertos() {
+            if (valorCubiertos === "" || parseInt(valorCubiertos) === 0) {
+                alert("Debe ingresar al menos 1 cubierto.");
+                return;
+            }
+            let nuevaCantidad = parseInt(valorCubiertos);
+            
+            // Envío por AJAX a la base de datos
+            fetch('/pos/api/ticket/cubiertos/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                body: JSON.stringify({ folio: '{{ folio }}', cubiertos: nuevaCantidad })
+            }).then(response => {
+                if(response.ok) {
+                    // Actualiza la pantalla y cierra el modal
+                    document.getElementById('lbl-cubiertos').innerText = nuevaCantidad;
+                    modalCubiertosObj.hide();
+                }
+            });
         }
     </script>
 </body>
