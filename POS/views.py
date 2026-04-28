@@ -233,3 +233,18 @@ def api_anular_ticket(request):
         services.anular_cuenta(folio)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_actualizar_cubiertos(request):
+    """
+    Recibe la orden desde el Modal de la comanda para actualizar 
+    la cantidad de cubiertos en tiempo real.
+    """
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        cubiertos = data.get('cubiertos')
+        
+        services.actualizar_cubiertos_cuenta(folio, cubiertos)
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'bad_request'}, status=400)

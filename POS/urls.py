@@ -16,4 +16,6 @@ urlpatterns = [
     path('api/ticket/borrar/', views.api_borrar_ticket, name='api_borrar_ticket'),
     path('api/ticket/comandar/', views.api_comandar_ticket, name='api_comandar_ticket'),
     path('api/ticket/anular/', views.api_anular_ticket, name='api_anular_ticket'),
+    # Ajustar cubiertos desde la comanda
+    path('api/ticket/cubiertos/', views.api_actualizar_cubiertos, name='api_actualizar_cubiertos'),
 ]
