@@ -110,7 +110,8 @@
 
     <div class="pos-container">
         
-        <div class="ticket-header">
+        <div class="panel-ticket">
+            <div class="ticket-header">
                 <div class="d-flex justify-content-between align-items-center mb-1">
                     <h5 class="fw-bold text-dark mb-0">Mesa {{ numero }}</h5>
                     <span class="badge bg-secondary fs-6">Folio: {{ folio }}</span>
@@ -156,9 +157,7 @@
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div class="panel-menu">
+        </div> <div class="panel-menu">
             <div class="menu-header">
                 <div class="d-flex align-items-center h-100 gap-2">
                     <button id="btn-volver-catalogo" class="btn btn-volver d-none fw-bold px-3" onclick="subirNivel()">
@@ -192,10 +191,7 @@
                 <div id="grid-grupos" class="row row-cols-3 row-cols-md-4 row-cols-xl-5 g-3 d-none"></div>
                 <div id="grid-productos" class="row row-cols-3 row-cols-md-4 row-cols-xl-5 g-3 d-none"></div>
             </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="modalNota" tabindex="-1">
+        </div> </div> <div class="modal fade" id="modalNota" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-warning text-dark">
@@ -221,7 +217,9 @@
                     <div class="text-center mb-3">
                         <h5 class="fw-bold text-dark mb-0">Modificar Cubiertos</h5>
                     </div>
+                    
                     <div class="pantalla-cubiertos" id="displayCubiertos"></div>
+                    
                     <div class="row g-2">
                         <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('7')">7</button></div>
                         <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('8')">8</button></div>
@@ -239,11 +237,13 @@
                         <div class="col-4"><button type="button" class="btn btn-tecla w-100" onclick="agregarNumeroCubierto('0')">0</button></div>
                         <div class="col-4"><button type="button" class="btn btn-tecla tecla-aceptar w-100" onclick="confirmarCubiertos()"><i class="fa-solid fa-check"></i></button></div>
                     </div>
+                    
                     <button type="button" class="btn btn-outline-secondary w-100 mt-3 fw-bold" data-bs-dismiss="modal">Cancelar</button>
                 </div>
             </div>
         </div>
     </div>
+
     {{ consumos_previos|json_script:"consumos-data" }}
     
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
