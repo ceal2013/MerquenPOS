@@ -277,6 +277,11 @@ def anular_cuenta(folio):
         sql = "UPDATE CtasMesas SET sw = '1', Status = '1' WHERE Folio = %s"
         cursor.execute(sql, [folio])
 
+def actualizar_cubiertos_cuenta(folio, cantidad):
+    """Actualiza la cantidad de comensales en una cuenta abierta."""
+    with connection.cursor() as cursor:
+        sql = "UPDATE CtasMesas SET Cubiertos = %s WHERE Folio = %s AND Status = '0'"
+        cursor.execute(sql, [cantidad, folio])
 
 # =====================================================================
 # BLOQUE 4: CATÁLOGO DE MENÚ (Carga dinámica)
