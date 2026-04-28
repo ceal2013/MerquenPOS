@@ -310,7 +310,14 @@
             document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
 
             // 1. Mostrar en pantalla Inmediatamente (Optimismo)
-            let itemExistente = comanda.find(item => item.codigo === codigo && item.estado === 'nuevo' && item.nota === '');
+            // Buscamos la coincidencia exacta usando Código, Clase y Grupo
+            let itemExistente = comanda.find(item => 
+                item.codigo === codigo && 
+                item.clase === clase && 
+                item.grupo === grupo && 
+                item.estado === 'nuevo' && 
+                item.nota === ''
+            );
             if (itemExistente) {
                 itemExistente.cantidad += cantAUsar;
             } else {
@@ -336,12 +343,15 @@
             if (comanda[index].estado === 'nuevo') {
                 let item = comanda[index];
                 
-                // Borrar de BD
+                // Borrar de BD enviando las llaves completas
                 fetch('/pos/api/ticket/borrar/', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                     body: JSON.stringify({
-                        folio: '{{ folio }}', producto: item.codigo, cantidad: item.cantidad
+                        folio: '{{ folio }}', 
+                        producto: item.codigo, 
+                        clase: item.clase, 
+                        grupo: item.grupo
                     })
                 });
 
