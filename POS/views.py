@@ -190,15 +190,17 @@ def api_agregar_ticket(request):
 @custom_login_required
 def api_borrar_ticket(request):
     """
-    Borra físicamente de la tabla Consumos el producto, 
-    SI Y SOLO SI no ha sido comandado (Flag = '0' o vacío).
+    Recibe la orden del tacho de basura y borra el producto no comandado.
+    Ahora utiliza Clase y Grupo para identificar unívocamente el ítem.
     """
     if request.method == 'POST':
         data = json.loads(request.body)
         folio = data.get('folio')
         producto = data.get('producto')
+        clase = data.get('clase')
+        grupo = data.get('grupo')
         
-        services.borrar_producto_consumo(folio, producto)
+        services.borrar_producto_consumo(folio, producto, clase, grupo)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
 

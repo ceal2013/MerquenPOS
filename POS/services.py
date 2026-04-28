@@ -383,10 +383,13 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT SubIndice FROM Consumos 
-            WHERE Folio = %s AND Producto = %s 
+            WHERE Folio = %s 
+              AND Producto = %s 
+              AND Clase = %s 
+              AND Grupo = %s
               AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
               AND (sw IS NULL OR sw = '' OR sw = '0')
-        """, [folio, producto])
+        """, [folio, producto, clase, grupo])
         fila = cursor.fetchone()
 
         if fila:
@@ -435,17 +438,18 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                 cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", 
                                [subindice_generado, subindice_generado])
 
-def borrar_producto_consumo(folio, producto):
-    """
-    BORRADO FÍSICO: El garzón eliminó del carrito un producto que AÚN 
-    no había sido enviado a la cocina (Flag='0').
-    """
+def borrar_producto_consumo(folio, producto, clase, grupo):
+    """Elimina físicamente de la BD un producto que AÚN NO ha sido comandado (Flag='0')"""
     with connection.cursor() as cursor:
         sql = """
             DELETE FROM Consumos 
-            WHERE Folio = %s AND Producto = %s AND (Flag = '0' OR Flag IS NULL OR Flag = '')
+            WHERE Folio = %s 
+              AND Producto = %s 
+              AND Clase = %s 
+              AND Grupo = %s 
+              AND (Flag = '0' OR Flag IS NULL OR Flag = '')
         """
-        cursor.execute(sql, [folio, producto])
+        cursor.execute(sql, [folio, producto, clase, grupo])
 
 def comandar_ticket(folio):
     """
