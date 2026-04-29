@@ -283,6 +283,41 @@ def actualizar_cubiertos_cuenta(folio, cantidad):
         sql = "UPDATE CtasMesas SET Cubiertos = %s WHERE Folio = %s AND Status = '0'"
         cursor.execute(sql, [cantidad, folio])
 
+def obtener_cuentas_folio(folio):
+    """
+    Lista las sub-cuentas activas de una mesa.
+    Busca todos los registros en CtasMesas con este Folio y extrae el campo 'Cuentas'.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Cuentas FROM CtasMesas WHERE Folio = %s AND Status = '0' ORDER BY CAST(Cuentas AS INT)", [folio])
+        return [str(fila[0]).strip() for fila in cursor.fetchall()]
+
+def crear_cuenta_extra(folio):
+    """
+    Crea una nueva sub-cuenta en la mesa.
+    Clona los datos de la cuenta principal, pero incrementa el valor del campo 'Cuentas'.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT ISNULL(MAX(CAST(Cuentas AS INT)), 0) + 1 FROM CtasMesas WHERE Folio = %s", [folio])
+        nueva_cuenta = str(cursor.fetchone()[0])
+        
+        sql_clone = """
+            INSERT INTO CtasMesas (
+                Punto, Mesa, Garzon, Cubiertos, Hora, Status, Tipo, Docto, 
+                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Propina, 
+                sw, Cuentas, Total, Convenio, Atencion, Habitacion, FolioCnv, 
+                Sucursal, Paquete, Admin, CCosto, Personal, TotalPersonal, Moneda
+            )
+            SELECT TOP 1 
+                Punto, Mesa, Garzon, Cubiertos, CONVERT(varchar(5), GETDATE(), 108), Status, Tipo, Docto, 
+                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Propina, 
+                sw, %s, 0, Convenio, Atencion, Habitacion, FolioCnv, 
+                Sucursal, Paquete, Admin, CCosto, Personal, TotalPersonal, Moneda
+            FROM CtasMesas WHERE Folio = %s AND Status = '0'
+        """
+        cursor.execute(sql_clone, [nueva_cuenta, folio])
+        return nueva_cuenta
+
 # =====================================================================
 # BLOQUE 4: CATÁLOGO DE MENÚ (Carga dinámica)
 # Trae las familias, grupos y productos filtrados por Punto de Venta.
@@ -349,12 +384,12 @@ def get_productos_grupo(punto, clase, grupo):
 # =====================================================================
 
 def obtener_consumos_mesa(folio):
-    """Obtiene los productos guardados. Excluye los anulados por supervisor (sw=1)."""
+    """Obtiene los productos guardados. Ahora incluye a qué sub-cuenta (Cuenta) pertenecen."""
     with connection.cursor() as cursor:
         sql = """
             SELECT 
                 c.Producto, p.NProducto, c.Valor, c.Cantidad, 
-                c.Clase, c.Grupo, c.Nota
+                c.Clase, c.Grupo, c.Nota, c.Cuenta
             FROM Consumos c
             JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
             WHERE c.Folio = %s 
@@ -371,48 +406,37 @@ def obtener_consumos_mesa(folio):
                 'cantidad': float(fila[3]),
                 'clase': fila[4].strip(),
                 'grupo': fila[5].strip(),
-                'nota': fila[6].strip() if fila[6] else ''
+                'nota': fila[6].strip() if fila[6] else '',
+                'cuenta': str(fila[7]).strip() if fila[7] else '1' # Por defecto a 1 si viene vacío
             })
         return consumos
     
-def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id):
-    """
-    LÓGICA UPSERT (OPTIMIZACIÓN):
-    Si el producto ya existe en el ticket y no ha sido comandado (Flag=0), 
-    le suma la cantidad (UPDATE). Si no existe, crea una línea nueva (INSERT).
-    """
+def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta='1'):
+    """Inserta o actualiza un producto en Consumos. Ahora respeta la sub-cuenta (Cuenta)."""
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
 
     with connection.cursor() as cursor:
+        # Filtramos por Cuenta para no mezclar un mismo producto en cuentas separadas
         cursor.execute("""
             SELECT SubIndice FROM Consumos 
-            WHERE Folio = %s 
-              AND Producto = %s 
-              AND Clase = %s 
-              AND Grupo = %s
+            WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s 
+              AND Cuenta = %s
               AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
               AND (sw IS NULL OR sw = '' OR sw = '0')
-        """, [folio, producto, clase, grupo])
+        """, [folio, producto, clase, grupo, cuenta])
         fila = cursor.fetchone()
 
         if fila:
             subindice = fila[0]
-            cursor.execute("""
-                UPDATE Consumos 
-                SET Cantidad = Cantidad + %s 
-                WHERE SubIndice = %s
-            """, [cantidad, subindice])
+            cursor.execute("UPDATE Consumos SET Cantidad = Cantidad + %s WHERE SubIndice = %s", [cantidad, subindice])
         else:
-            # LÓGICA DE INSERCIÓN: Producto nuevo en el ticket
             cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
             fila_mesa = cursor.fetchone()
             mesa = fila_mesa[0] if fila_mesa else ''
 
-            # Uso de la cláusula 'OUTPUT INSERTED.SubIndice' para capturar 
-            # de forma segura e instantánea el ID autonumérico generado por SQL Server.
-            # Nota: La variable 'precio' inyectada es estrictamente el Valor Unitario.
+            # Inyectamos el valor 'cuenta' en el campo 'Cuenta' de Consumos
             sql_insert = """
                 INSERT INTO Consumos (
                     Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
@@ -424,24 +448,19 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                 VALUES (
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
-                    '', %s, %s, %s, %s, 0, %s,
+                    %s, %s, %s, %s, %s, 0, %s,
                     '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
                 )
             """
-            
             cursor.execute(sql_insert, [
                 punto, mesa, grupo, producto, cantidad, precio,
                 folio, fecha_proceso, turno_bd, clase,
-                usuario_id, clase, grupo, producto, precio
+                cuenta, usuario_id, clase, grupo, producto, precio
             ])
             
-            # Capturamos el ID recién creado
             subindice_generado = cursor.fetchone()[0]
-
-            # Actualizamos el campo Indice para que sea igual al SubIndice autonumérico
             if subindice_generado:
-                cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", 
-                               [subindice_generado, subindice_generado])
+                cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", [subindice_generado, subindice_generado])
 
 def borrar_producto_consumo(folio, producto, clase, grupo):
     """Elimina físicamente de la BD un producto que AÚN NO ha sido comandado (Flag='0')"""
@@ -572,3 +591,13 @@ def crear_cuenta_extra(folio):
         """
         cursor.execute(sql_clone, [nueva_cuenta, folio])
         return nueva_cuenta
+    
+def mover_producto_cuenta(folio, producto, clase, grupo, cuenta_origen, cuenta_destino):
+    """Mueve un producto no comandado (Flag=0) de una cuenta a otra dentro de la mesa."""
+    with connection.cursor() as cursor:
+        cursor.execute("""
+            UPDATE Consumos 
+            SET Cuenta = %s 
+            WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s AND Cuenta = %s 
+              AND (Flag = '0' OR Flag IS NULL OR Flag = '')
+        """, [cuenta_destino, folio, producto, clase, grupo, cuenta_origen])
