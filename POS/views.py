@@ -270,3 +270,29 @@ def api_actualizar_cubiertos(request):
         services.actualizar_cubiertos_cuenta(folio, cubiertos)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_verificar_mesa_vacia(request, punto, numero):
+    """Devuelve JSON indicando si la mesa está vacía, para decidir si mostrar Modal de Anulación."""
+    estado = services.verificar_estado_ocupacion(punto, numero)
+    if not estado:
+        return JsonResponse({'error': 'Mesa no activa'}, status=404)
+    
+    # Generamos la URL de la comanda para que JS sepa a dónde redirigir
+    from django.urls import reverse
+    url_comanda = reverse('comanda', args=[punto, numero, estado['folio']])
+    
+    return JsonResponse({
+        'vacia': estado['vacia'],
+        'url_comanda': url_comanda,
+        'folio': estado['folio']
+    })
+
+@custom_login_required
+def api_anular_mesa(request):
+    """Recibe la orden del Modal para anular el folio completo."""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        services.anular_mesa_completa(data.get('folio'))
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'bad_request'}, status=400)
