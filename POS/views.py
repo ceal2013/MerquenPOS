@@ -115,6 +115,7 @@ def comanda_view(request, punto, numero, folio):
     
     # Pre-cargamos la primera columna del catálogo dinámico
     familias = services.get_familias_punto(punto)
+    nombre_punto = next((p['nombre'] for p in services.getPuntosVenta() if p['codigo'] == punto), "Punto de Venta")
     
     # Obtenemos los datos de la cuenta activa
     cubiertos = services.obtener_cubiertos_cuenta(folio)
@@ -134,7 +135,8 @@ def comanda_view(request, punto, numero, folio):
         'nombre_garzon': nombre_garzon, # Variable nueva para el ticket
         'fecha_proceso': datos_turno['fecha'],
         'turno_activo': datos_turno['turno_texto'],
-        'nombre_local': services.obtener_nombre_local()
+        'nombre_local': services.obtener_nombre_local(),
+        'nombre_punto': nombre_punto
     })
 
 

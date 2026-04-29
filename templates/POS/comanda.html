@@ -111,16 +111,22 @@
     <div class="pos-container">
         
         <div class="panel-ticket">
-            <div class="ticket-header">
-                <div class="d-flex justify-content-between align-items-center mb-1">
-                    <h5 class="fw-bold text-dark mb-0">Mesa {{ numero }}</h5>
+           <div class="ticket-header">
+                <div class="text-center text-muted mb-2" style="font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                    {{ nombre_punto }}
+                </div>
+                
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h4 class="fw-bold text-dark mb-0 fs-3">Mesa {{ numero }}</h4>
                     <span class="badge bg-secondary fs-6">Folio: {{ folio }}</span>
                 </div>
-                <div class="d-flex justify-content-between text-muted" style="font-size: 0.85rem;">
-                    <span><i class="fa-solid fa-clipboard-user"></i> {{ nombre_garzon }}</span>
-                    <span style="cursor: pointer;" ondblclick="abrirModalCubiertos()" title="Doble clic para modificar">
-                        <i class="fa-solid fa-utensils me-1"></i>
-                        <strong id="lbl-cubiertos">{{ cubiertos }}</strong>
+                
+                <div class="d-flex justify-content-between text-muted fs-5 align-items-center">
+                    <span title="Garzón"><i class="fa-solid fa-clipboard-user fs-4 me-2 text-primary"></i> {{ nombre_garzon }}</span>
+                    
+                    <span class="px-2 py-1 rounded" style="cursor: pointer; background-color: #f1f5f9; border: 1px solid #cbd5e1;" ondblclick="abrirModalCubiertos()" title="Doble clic para modificar cubiertos">
+                        <i class="fa-solid fa-utensils fs-4 me-2 text-primary"></i>
+                        <strong id="lbl-cubiertos" class="fs-4 text-dark">{{ cubiertos }}</strong>
                     </span>
                 </div>
             </div>
