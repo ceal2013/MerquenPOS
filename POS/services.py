@@ -537,3 +537,38 @@ def comandar_ticket(folio):
             WHERE Folio = %s AND (Flag = '0' OR Flag IS NULL OR Flag = '')
         """
         cursor.execute(sql_update_flag, [folio])
+
+def obtener_cuentas_folio(folio):
+    """
+    Lista las sub-cuentas activas de una mesa.
+    Busca todos los registros en CtasMesas con este Folio y extrae el campo 'Cuentas'.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Cuentas FROM CtasMesas WHERE Folio = %s AND Status = '0' ORDER BY CAST(Cuentas AS INT)", [folio])
+        return [str(fila[0]).strip() for fila in cursor.fetchall()]
+
+def crear_cuenta_extra(folio):
+    """
+    Crea una nueva sub-cuenta en la mesa.
+    Clona los datos de la cuenta principal, pero incrementa el valor del campo 'Cuentas'.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT ISNULL(MAX(CAST(Cuentas AS INT)), 0) + 1 FROM CtasMesas WHERE Folio = %s", [folio])
+        nueva_cuenta = str(cursor.fetchone()[0])
+        
+        sql_clone = """
+            INSERT INTO CtasMesas (
+                Punto, Mesa, Garzon, Cubiertos, Hora, Status, Tipo, Docto, 
+                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Propina, 
+                sw, Cuentas, Total, Convenio, Atencion, Habitacion, FolioCnv, 
+                Sucursal, Paquete, Admin, CCosto, Personal, TotalPersonal, Moneda
+            )
+            SELECT TOP 1 
+                Punto, Mesa, Garzon, Cubiertos, CONVERT(varchar(5), GETDATE(), 108), Status, Tipo, Docto, 
+                Fecha, Folio, Turno, Dscto, Cuenta, Hab, Propina, 
+                sw, %s, 0, Convenio, Atencion, Habitacion, FolioCnv, 
+                Sucursal, Paquete, Admin, CCosto, Personal, TotalPersonal, Moneda
+            FROM CtasMesas WHERE Folio = %s AND Status = '0'
+        """
+        cursor.execute(sql_clone, [nueva_cuenta, folio])
+        return nueva_cuenta
