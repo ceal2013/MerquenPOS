@@ -593,11 +593,11 @@ def crear_cuenta_extra(folio):
         return nueva_cuenta
     
 def mover_producto_cuenta(folio, producto, clase, grupo, cuenta_origen, cuenta_destino):
-    """Mueve un producto no comandado (Flag=0) de una cuenta a otra dentro de la mesa."""
+    """Mueve un producto de una cuenta a otra dentro de la mesa, sin importar si ya fue comandado (Flag 0 o 1)."""
     with connection.cursor() as cursor:
         cursor.execute("""
             UPDATE Consumos 
             SET Cuenta = %s 
             WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s AND Cuenta = %s 
-              AND (Flag = '0' OR Flag IS NULL OR Flag = '')
+              AND (sw IS NULL OR sw = '' OR sw = '0')
         """, [cuenta_destino, folio, producto, clase, grupo, cuenta_origen])
