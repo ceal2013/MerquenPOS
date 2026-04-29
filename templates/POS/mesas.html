@@ -244,6 +244,33 @@
         </div>
     </div>
 
+    <div class="modal fade" id="modalAnularMesa" tabindex="-1" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered modal-sm">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 20px;">
+                <div class="modal-body p-4 text-center">
+                    <div class="mb-4">
+                        <i class="fa-solid fa-triangle-exclamation text-warning" style="font-size: 3.5rem;"></i>
+                    </div>
+                    <h4 class="fw-bold text-dark mb-3">Mesa <span id="lbl-mesa-anular"></span> sin pedidos</h4>
+                    <p class="text-secondary mb-4">Esta mesa no tiene productos cargados. ¿Desea cerrarla o continuar atendiendo?</p>
+                    
+                    <input type="hidden" id="hdn-folio-anular">
+                    <input type="hidden" id="hdn-url-seguir">
+
+                    <div class="d-grid gap-3">
+                        <button type="button" class="btn btn-primary btn-lg fw-bold" onclick="seguirAtendiendo()">
+                            <i class="fa-solid fa-arrow-right me-2"></i>Seguir Atendiendo
+                        </button>
+                        <button type="button" class="btn btn-outline-danger fw-bold" onclick="confirmarAnulacion()">
+                            <i class="fa-solid fa-ban me-2"></i>Anular Mesa
+                        </button>
+                        <button type="button" class="btn btn-light mt-2" data-bs-dismiss="modal">Cancelar</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <footer class="footer-corporativo text-center">
         <div class="container">
@@ -257,16 +284,18 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     
     <script>
-        // Variables globales para el Teclado Modal
+        // Variables globales para los Modales
         let modalCubiertosObj;
+        let modalAnularObj;
         let valorActual = "";
         const display = document.getElementById('displayCubiertos');
 
         // --- INICIALIZACIÓN AL CARGAR LA PÁGINA ---
         document.addEventListener('DOMContentLoaded', function() {
             
-            // 1. Inicializar el modal de Bootstrap para poder llamarlo desde JS
+            // 1. Inicializar los modales de Bootstrap para poder llamarlos desde JS
             modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos'));
+            modalAnularObj = new bootstrap.Modal(document.getElementById('modalAnularMesa'));
 
             // 2. Lógica para recordar Pestaña (Punto de Venta) usando LocalStorage
             let activeTab = localStorage.getItem('activeTab_Mesas');
@@ -288,7 +317,7 @@
             });
         });
 
-        // --- LÓGICA PRINCIPAL: DOBLE CLIC EN MESA ---
+        // --- LÓGICA PRINCIPAL: APERTURA DE MESA ---
         function abrirMesa(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
             
             // REGLA: Si la mesa la tiene tomada el Cajero u otro usuario en Visual Basic, no dejar entrar.
@@ -305,12 +334,54 @@
                 actualizarPantalla();
                 modalCubiertosObj.show();
             } else {
-                // MESA OCUPADA/IMPRESA: Redirige a Python para entrar a la Comanda (o preguntar si anula)
-                window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
+                // MESA OCUPADA/IMPRESA: Consultamos por API si está vacía de productos
+                fetch('/pos/api/mesa/verificar/' + punto + '/' + numero + '/')
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.vacia) {
+                            // Está vacía: Preparamos y abrimos el Modal de Anulación
+                            document.getElementById('lbl-mesa-anular').innerText = numero;
+                            document.getElementById('hdn-folio-anular').value = data.folio;
+                            document.getElementById('hdn-url-seguir').value = data.url_comanda;
+                            modalAnularObj.show();
+                        } else {
+                            // Tiene productos: Vamos directo a la comanda
+                            window.location.href = data.url_comanda;
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error al verificar la mesa:", error);
+                        // Redirección de seguridad en caso de fallo de red
+                        window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
+                    });
             }
         }
 
-        // --- FUNCIONES DEL TECLADO NUMÉRICO (MODAL) ---
+        // --- FUNCIONES DEL MODAL DE ANULACIÓN ---
+        function seguirAtendiendo() {
+            window.location.href = document.getElementById('hdn-url-seguir').value;
+        }
+
+        function confirmarAnulacion() {
+            let folio = document.getElementById('hdn-folio-anular').value;
+            // Se extrae el token CSRF del formulario oculto de cubiertos
+            let token = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            fetch('/pos/api/mesa/anular/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': token
+                },
+                body: JSON.stringify({ folio: folio })
+            }).then(response => {
+                if (response.ok) {
+                    window.location.reload(); // Recarga la pantalla para mostrar la mesa libre inmediatamente
+                }
+            });
+        }
+
+        // --- FUNCIONES DEL TECLADO NUMÉRICO (MODAL CUBIERTOS) ---
         function actualizarPantalla() { 
             display.innerText = valorActual === "" ? "" : valorActual; 
         }

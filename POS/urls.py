@@ -18,6 +18,9 @@ urlpatterns = [
     path('api/ticket/anular/', views.api_anular_ticket, name='api_anular_ticket'),
     path('api/ticket/cuenta_extra/', views.api_crear_cuenta, name='api_crear_cuenta'),
     path('api/ticket/mover/', views.api_mover_producto, name='api_mover_producto'),
-    # Ajustar cubiertos desde la comanda
     path('api/ticket/cubiertos/', views.api_actualizar_cubiertos, name='api_actualizar_cubiertos'),
+    
+    # --- ENDPOINTS AJAX (Control de Mesas) ---
+    path('api/mesa/verificar/<str:punto>/<str:numero>/', views.api_verificar_mesa_vacia, name='api_verificar_mesa_vacia'),
+    path('api/mesa/anular/', views.api_anular_mesa, name='api_anular_mesa'),
 ]
