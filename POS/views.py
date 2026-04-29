@@ -113,16 +113,17 @@ def comanda_view(request, punto, numero, folio):
     usuario = request.session['usuario_activo']
     datos_turno = services.obtener_turno_activo()
     
-    # Pre-cargamos la primera columna del catálogo dinámico
     familias = services.get_familias_punto(punto)
     nombre_punto = next((p['nombre'] for p in services.getPuntosVenta() if p['codigo'] == punto), "Punto de Venta")
     
-    # Obtenemos los datos de la cuenta activa
     cubiertos = services.obtener_cubiertos_cuenta(folio)
     consumos_previos = services.obtener_consumos_mesa(folio)
-    
-    # LÓGICA DE NEGOCIO: Mostrar el nombre real del Garzón (no del usuario del sistema)
     nombre_garzon = services.obtener_nombre_garzon(folio)
+    
+    # Obtener listado de cuentas activas para este folio
+    cuentas_activas = services.obtener_cuentas_folio(folio)
+    if not cuentas_activas:
+        cuentas_activas = ['1']
     
     return render(request, 'POS/comanda.html', {
         'punto': punto,
@@ -131,8 +132,9 @@ def comanda_view(request, punto, numero, folio):
         'cubiertos': cubiertos,
         'familias': familias,
         'consumos_previos': consumos_previos,
+        'cuentas_activas': cuentas_activas,
         'usuario': usuario,
-        'nombre_garzon': nombre_garzon, # Variable nueva para el ticket
+        'nombre_garzon': nombre_garzon,
         'fecha_proceso': datos_turno['fecha'],
         'turno_activo': datos_turno['turno_texto'],
         'nombre_local': services.obtener_nombre_local(),
@@ -163,29 +165,47 @@ def api_get_productos(request, punto, clase, grupo):
 
 @custom_login_required
 def api_agregar_ticket(request):
-    """
-    Recibe la orden desde JS de agregar un producto. 
-    Llama al 'services.py' que agrupa cantidades si ya existe con Flag=0.
-    """
+    """Agrega un producto, ahora lee el parámetro 'cuenta' desde el JSON."""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            folio = data.get('folio')
-            punto = data.get('punto')
-            clase = data.get('clase')
-            grupo = data.get('grupo')
-            producto = data.get('producto')
-            precio = data.get('precio')
-            cantidad = data.get('cantidad')
+            # ... rescatas tus variables antiguas y sumas la cuenta:
+            folio, punto, clase, grupo = data.get('folio'), data.get('punto'), data.get('clase'), data.get('grupo')
+            producto, precio, cantidad = data.get('producto'), data.get('precio'), data.get('cantidad')
+            cuenta = data.get('cuenta', '1') # Capturamos la cuenta actual
             
             usuario_id = request.session['usuario_activo']['id']
             
-            services.agregar_producto_consumo(
-                folio, punto, clase, grupo, producto, precio, cantidad, usuario_id
-            )
+            services.agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta)
             return JsonResponse({'status': 'ok'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_crear_cuenta(request):
+    """Llama al servicio para clonar la CtasMesas y retorna el nuevo número."""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        nueva_cuenta = services.crear_cuenta_extra(folio)
+        return JsonResponse({'status': 'ok', 'nueva_cuenta': nueva_cuenta})
+    return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_mover_producto(request):
+    """Llama al servicio para actualizar el campo Cuenta en Consumos."""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        producto = data.get('producto')
+        clase = data.get('clase')
+        grupo = data.get('grupo')
+        origen = data.get('cuenta_origen')
+        destino = data.get('cuenta_destino')
+        
+        services.mover_producto_cuenta(folio, producto, clase, grupo, origen, destino)
+        return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 
