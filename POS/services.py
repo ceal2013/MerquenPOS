@@ -318,6 +318,25 @@ def crear_cuenta_extra(folio):
         cursor.execute(sql_clone, [nueva_cuenta, folio])
         return nueva_cuenta
 
+def verificar_estado_ocupacion(punto, numero):
+    """Verifica si el Folio activo de la mesa tiene productos cargados en alguna de sus cuentas."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Folio FROM CtasMesas WHERE Punto = %s AND Mesa = %s AND Status = '0'", [punto, numero])
+        fila_folio = cursor.fetchone()
+        if not fila_folio:
+            return None
+        
+        folio = fila_folio[0]
+        cursor.execute("SELECT COUNT(*) FROM Consumos WHERE Folio = %s AND (sw IS NULL OR sw = '' OR sw = '0')", [folio])
+        tiene_productos = cursor.fetchone()[0] > 0
+        
+        return {'folio': folio, 'vacia': not tiene_productos}
+
+def anular_mesa_completa(folio):
+    """Anula la mesa cambiando Status='1' y sw='1' para todas las cuentas vinculadas a ese folio."""
+    with connection.cursor() as cursor:
+        cursor.execute("UPDATE CtasMesas SET Status='1', sw='1' WHERE Folio = %s", [folio])
+
 # =====================================================================
 # BLOQUE 4: CATÁLOGO DE MENÚ (Carga dinámica)
 # Trae las familias, grupos y productos filtrados por Punto de Venta.
