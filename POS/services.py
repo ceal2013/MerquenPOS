@@ -333,9 +333,25 @@ def verificar_estado_ocupacion(punto, numero):
         return {'folio': folio, 'vacia': not tiene_productos}
 
 def anular_mesa_completa(folio):
-    """Anula la mesa cambiando Status='1' y sw='1' para todas las cuentas vinculadas a ese folio."""
+    """
+    Anula (Status='1', sw='1') SOLO las sub-cuentas de la mesa que NO tienen 
+    ningún producto asociado en la tabla Consumos.
+    Si una cuenta tiene productos (aunque ya estén pagados con Status='1'), 
+    se respeta y no se anula.
+    """
     with connection.cursor() as cursor:
-        cursor.execute("UPDATE CtasMesas SET Status='1', sw='1' WHERE Folio = %s", [folio])
+        sql = """
+            UPDATE CtasMesas 
+            SET Status = '1', sw = '1' 
+            WHERE Folio = %s 
+              AND LTRIM(RTRIM(Cuentas)) NOT IN (
+                  SELECT DISTINCT LTRIM(RTRIM(ISNULL(Cuenta, '1'))) 
+                  FROM Consumos 
+                  WHERE Folio = %s
+              )
+        """
+        # Le pasamos el folio dos veces (uno para el UPDATE y otro para el SELECT interno)
+        cursor.execute(sql, [folio, folio])
 
 # =====================================================================
 # BLOQUE 4: CATÁLOGO DE MENÚ (Carga dinámica)
