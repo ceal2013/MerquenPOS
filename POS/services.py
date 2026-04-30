@@ -319,7 +319,7 @@ def crear_cuenta_extra(folio):
         return nueva_cuenta
 
 def verificar_estado_ocupacion(punto, numero):
-    """Verifica si el Folio activo de la mesa tiene productos cargados en alguna de sus cuentas."""
+    """Verifica si el Folio activo de la mesa tiene productos sin pagar (Status='0')."""
     with connection.cursor() as cursor:
         cursor.execute("SELECT Folio FROM CtasMesas WHERE Punto = %s AND Mesa = %s AND Status = '0'", [punto, numero])
         fila_folio = cursor.fetchone()
@@ -327,7 +327,7 @@ def verificar_estado_ocupacion(punto, numero):
             return None
         
         folio = fila_folio[0]
-        cursor.execute("SELECT COUNT(*) FROM Consumos WHERE Folio = %s AND (sw IS NULL OR sw = '' OR sw = '0')", [folio])
+        cursor.execute("SELECT COUNT(*) FROM Consumos WHERE Folio = %s AND Status = '0' AND (sw IS NULL OR sw = '' OR sw = '0')", [folio])
         tiene_productos = cursor.fetchone()[0] > 0
         
         return {'folio': folio, 'vacia': not tiene_productos}
@@ -403,15 +403,16 @@ def get_productos_grupo(punto, clase, grupo):
 # =====================================================================
 
 def obtener_consumos_mesa(folio):
-    """Obtiene los productos guardados. Ahora incluye a qué sub-cuenta (Cuenta) pertenecen."""
+    """Obtiene los productos guardados con Status='0'. Ahora lee el Flag para saber si fue comandado."""
     with connection.cursor() as cursor:
         sql = """
             SELECT 
                 c.Producto, p.NProducto, c.Valor, c.Cantidad, 
-                c.Clase, c.Grupo, c.Nota, c.Cuenta
+                c.Clase, c.Grupo, c.Nota, c.Cuenta, c.Flag
             FROM Consumos c
             JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
             WHERE c.Folio = %s 
+              AND c.Status = '0'
               AND (c.sw IS NULL OR c.sw = '' OR c.sw = '0') 
             ORDER BY c.SubIndice
         """
@@ -426,7 +427,8 @@ def obtener_consumos_mesa(folio):
                 'clase': fila[4].strip(),
                 'grupo': fila[5].strip(),
                 'nota': fila[6].strip() if fila[6] else '',
-                'cuenta': str(fila[7]).strip() if fila[7] else '1' # Por defecto a 1 si viene vacío
+                'cuenta': str(fila[7]).strip() if fila[7] else '1',
+                'flag': str(fila[8]).strip() if fila[8] else '0'
             })
         return consumos
     
