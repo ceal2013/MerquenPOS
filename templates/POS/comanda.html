@@ -294,7 +294,7 @@
             cantidad: parseFloat(item.cantidad), 
             clase: item.clase, 
             grupo: item.grupo, 
-            estado: 'guardado', 
+            estado: item.flag === '1' ? 'guardado' : 'nuevo',
             nota: item.nota || '',
             cuenta: item.cuenta
         }));
@@ -400,6 +400,11 @@
         }
 
         function crearCuentaExtra() {
+            if (comanda.length === 0) {
+                alert("Debe cargar al menos un producto en la cuenta actual antes de crear sub-cuentas.");
+                return;
+            }
+
             fetch('/pos/api/ticket/cuenta_extra/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
@@ -420,22 +425,24 @@
             let totalCuentaActiva = 0;
 
             comanda.forEach((item, index) => {
+                // FILTRO: Solo mostramos los productos que pertenecen a la pestaña actual
                 if (item.cuenta !== cuentaVisible) return;
 
                 totalCuentaActiva += (item.precio * item.cantidad);
                 let subtotalLinea = item.precio * item.cantidad;
 
-                // El ícono de Mover ahora aparece SIEMPRE que haya más de 1 cuenta activa, sin importar el estado
-                let btnMover = (cuentasActivas.length > 1) 
-                    ? `<button class="btn btn-info text-white btn-accion-linea me-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
+                // REGLA DE NEGOCIO: El ícono de Mover solo aparece si hay más de 1 cuenta activa 
+                // Y el producto ya fue comandado (estado === 'guardado').
+                let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado') 
+                    ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
                 let iconosHtml = '';
                 if (item.estado === 'guardado') {
-                    // Si ya se mandó a cocina, mostramos el botón Mover y la Impresora
-                    iconosHtml = `${btnMover}<span class="text-success fs-5 ms-1"><i class="fa-solid fa-print"></i></span>`;
+                    // Producto ya enviado a cocina: Mostramos la Impresora y el botón Mover.
+                    iconosHtml = `<span class="text-success fs-5"><i class="fa-solid fa-print"></i></span>${btnMover}`;
                 } else {
-                    // Si es nuevo, mostramos Mover, Lápiz y Basurero
-                    iconosHtml = `${btnMover}
+                    // Producto nuevo (sin comandar): Solo mostramos Lápiz (Nota) y Basurero. NO se puede mover aún.
+                    iconosHtml = `
                        <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})"><i class="fa-solid fa-pencil"></i></button>
                        <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
                 }
