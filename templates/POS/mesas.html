@@ -158,7 +158,7 @@
                                 <div class="col">
                                     
                                     <div class="mesa-card estado-{{ mesa.estado }}" 
-                                         ondblclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}', '{{ mesa.estado }}')">
+                                         onclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}', '{{ mesa.estado }}')">
                                         
                                         {% if mesa.bloqueada %}
                                             <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
