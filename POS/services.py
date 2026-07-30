@@ -123,6 +123,20 @@ def getPuntosVenta():
         puntos = [{'codigo': fila[0], 'nombre': fila[1]} for fila in cursor.fetchall()]
         return puntos
 
+def get_punto_nombre(codigo_punto):
+    """Obtiene el nombre de un punto de venta específico.
+
+    Args:
+        codigo_punto (str): El código del punto de venta a consultar.
+
+    Returns:
+        str: El nombre del punto de venta o un texto por defecto si no se encuentra.
+    """
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT Nombre FROM Puntos WHERE Codigo = %s", [codigo_punto])
+        fila = cursor.fetchone()
+        return fila[0].strip() if fila else "Punto Desconocido"
+
 def getEstadoMesas(codigoPunto):
     """Obtiene el estado consolidado de todas las mesas de un punto de venta.
 
@@ -339,6 +353,45 @@ def obtener_cubiertos_cuenta(folio):
         cursor.execute("SELECT Cubiertos FROM CtasMesas WHERE Folio = %s AND Status = '0'", [folio])
         fila = cursor.fetchone()
         return fila[0] if fila else 1
+
+def obtener_detalles_cuenta(folio):
+    """Obtiene detalles de una cuenta (cubiertos, garzón, sub-cuentas) en una sola consulta.
+
+    Combina múltiples lecturas a la tabla `CtasMesas` en una sola llamada a la
+    base de datos para optimizar el rendimiento en la vista de la comanda.
+
+    Args:
+        folio (str): El folio de la cuenta a consultar.
+
+    Returns:
+        dict: Un diccionario con 'cubiertos', 'nombre_garzon' y 'cuentas_activas'.
+    """
+    with connection.cursor() as cursor:
+        sql = """
+            SELECT 
+                c.Cubiertos, 
+                g.Nombre AS NombreGarzon,
+                c.Cuentas
+            FROM CtasMesas c
+            LEFT JOIN Garzones g ON c.Garzon = g.Codigo
+            WHERE c.Folio = %s AND c.Status = '0'
+            ORDER BY CAST(c.Cuentas AS INT)
+        """
+        cursor.execute(sql, [folio])
+        
+        filas = cursor.fetchall()
+        if not filas:
+            return {'cubiertos': 1, 'nombre_garzon': 'Sin Garzón', 'cuentas_activas': ['1']}
+
+        cubiertos = filas[0][0] if filas[0][0] else 1
+        nombre_garzon = filas[0][1].strip() if filas[0][1] else 'Sin Garzón'
+        cuentas_activas = [str(fila[2]).strip() for fila in filas]
+        
+        return {
+            'cubiertos': cubiertos,
+            'nombre_garzon': nombre_garzon,
+            'cuentas_activas': cuentas_activas
+        }
 
 def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
     """Crea un nuevo registro de cuenta en la tabla `CtasMesas`.

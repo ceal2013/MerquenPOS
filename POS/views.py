@@ -114,27 +114,24 @@ def comanda_view(request, punto, numero, folio):
     datos_turno = services.obtener_turno_activo()
     
     familias = services.get_familias_punto(punto)
-    nombre_punto = next((p['nombre'] for p in services.getPuntosVenta() if p['codigo'] == punto), "Punto de Venta")
-    
-    cubiertos = services.obtener_cubiertos_cuenta(folio)
+
+    # Mejora de rendimiento y simplificación:
+    # 1. Se obtiene el nombre del punto con una consulta específica en lugar de traerlos todos.
+    # 2. Se agrupan 3 consultas (cubiertos, garzón, cuentas) en una sola llamada.
+    nombre_punto = services.get_punto_nombre(punto)
+    detalles_cuenta = services.obtener_detalles_cuenta(folio)
     consumos_previos = services.obtener_consumos_mesa(folio)
-    nombre_garzon = services.obtener_nombre_garzon(folio)
-    
-    # Obtener listado de cuentas activas para este folio
-    cuentas_activas = services.obtener_cuentas_folio(folio)
-    if not cuentas_activas:
-        cuentas_activas = ['1']
-    
+
     return render(request, 'POS/comanda.html', {
         'punto': punto,
         'numero': numero,
         'folio': folio,
-        'cubiertos': cubiertos,
+        'cubiertos': detalles_cuenta['cubiertos'],
         'familias': familias,
         'consumos_previos': consumos_previos,
-        'cuentas_activas': cuentas_activas,
+        'cuentas_activas': detalles_cuenta['cuentas_activas'],
         'usuario': usuario,
-        'nombre_garzon': nombre_garzon,
+        'nombre_garzon': detalles_cuenta['nombre_garzon'],
         'fecha_proceso': datos_turno['fecha'],
         'turno_activo': datos_turno['turno_texto'],
         'nombre_local': services.obtener_nombre_local(),
