@@ -201,18 +201,16 @@
 
     </div> 
 
-    <!-- MODAL PARA SELECCIONAR VARIEDADES -->
-    <div class="modal fade" id="modalVariedades" tabindex="-1">
+    <div class="modal fade" id="modalVariedades" tabindex="-1" data-bs-backdrop="static">
         <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content">
-                <div class="modal-header bg-primary text-white">
-                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-tags me-2"></i>Seleccionar Variedad</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                <div class="modal-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-utensils me-2"></i>Seleccione Opción</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" onclick="cancelarVariedad()"></button>
                 </div>
-                <div class="modal-body">
-                    <p class="fw-bold mb-3 text-secondary" id="lbl-producto-variedad">Producto</p>
-                    <div id="btn-container-variedades" class="d-grid gap-2">
-                        <!-- Botones de variedad se inyectarán aquí -->
+                <div class="modal-body p-4">
+                    <p class="fw-bold mb-4 text-center text-dark fs-5" id="lbl-producto-variedad"></p>
+                    <div id="grid-variedades" class="row g-3">
                     </div>
                 </div>
             </div>
@@ -354,18 +352,10 @@
                 .then(data => {
                     let html = '';
                     data.productos.forEach(p => {
-                        // Se pasa el objeto completo para tener todos los datos a mano
-                        const productoData = JSON.stringify({
-                            codigo: p.codigo,
-                            nombre: p.nombre,
-                            precio: p.precio,
-                            clase: clase,
-                            grupo: grupo
-                        }).replace(/'/g, "&apos;");
-
+                        const nombreEscapado = p.nombre.replace(/'/g, "\\'");
                         html += `
                         <div class="col">
-                            <button class="btn-pos btn-producto w-100" onclick="handleProductoClick(${productoData})">
+                            <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${nombreEscapado}', ${p.precio}, '${clase}', '${grupo}')">
                                 <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span></div>
                             </button>
                         </div>`;
@@ -399,47 +389,6 @@
         function subirNivel() {
             if (nivelActual === 'productos') cambiarNivel('grupos', nombreFamiliaActiva);
             else if (nivelActual === 'grupos') cambiarNivel('familias', 'FAMILIAS');
-        }
-
-        let productoPendiente = null;
-
-        function handleProductoClick(producto) {
-            fetch(`/pos/api/variedades/${producto.clase}/${producto.grupo}/${producto.codigo}/`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.variedades && data.variedades.length > 0) {
-                        productoPendiente = producto;
-                        document.getElementById('lbl-producto-variedad').innerText = producto.nombre;
-                        const container = document.getElementById('btn-container-variedades');
-                        container.innerHTML = '';
-                        data.variedades.forEach(variedad => {
-                            container.innerHTML += `<button class="btn btn-outline-primary fw-bold py-2" onclick="seleccionarVariedad('${variedad.replace(/'/g, "\\'")}')">${variedad}</button>`;
-                        });
-                        container.innerHTML += `<hr><button class="btn btn-secondary fw-bold py-2" onclick="seleccionarVariedad('')">Agregar sin variedad</button>`;
-                        modalVariedadesObj.show();
-                    } else {
-                        agregarAlTicket(producto.codigo, producto.nombre, producto.precio, producto.clase, producto.grupo);
-                    }
-                })
-                .catch(error => {
-                    console.error("Error al obtener variedades:", error);
-                    agregarAlTicket(producto.codigo, producto.nombre, producto.precio, producto.clase, producto.grupo);
-                });
-        }
-
-        function seleccionarVariedad(variedad) {
-            if (productoPendiente) {
-                agregarAlTicket(
-                    productoPendiente.codigo,
-                    productoPendiente.nombre,
-                    productoPendiente.precio,
-                    productoPendiente.clase,
-                    productoPendiente.grupo,
-                    variedad
-                );
-                productoPendiente = null;
-                modalVariedadesObj.hide();
-            }
         }
 
         function pedirMultiplicador() {
@@ -565,41 +514,100 @@
             renderizarTicket();
         }
 
-        function agregarAlTicket(codigo, nombre, precio, clase, grupo, nota = '') {
+        let productoPendiente = null;
+
+        function agregarAlTicket(codigo, nombre, precio, clase, grupo) {
+            // 1. Rescatamos la cantidad multiplicadora
             let cantAUsar = multiplicadorActivo;
             multiplicadorActivo = 1;
             document.getElementById('txt-multiplicador').innerText = '1';
             document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
 
-            // La nota (variedad) ahora es parte del criterio para agrupar.
-            // Un producto con nota diferente es un ítem nuevo.
+            // 2. Guardamos el producto temporalmente
+            productoPendiente = { codigo, nombre, precio, clase, grupo, cantidad: cantAUsar };
+
+            // 3. Consultamos silenciosamente a Django si tiene variedades
+            fetch(`/pos/api/variedades/${clase}/${grupo}/${codigo}/`)
+            .then(res => res.json())
+            .then(data => {
+                if (data.variedades && data.variedades.length > 0) {
+                    // TIENE VARIEDADES: Preparamos y abrimos el Modal
+                    document.getElementById('lbl-producto-variedad').innerText = nombre;
+                    let grid = document.getElementById('grid-variedades');
+                    grid.innerHTML = '';
+                    
+                    data.variedades.forEach(v => {
+                        grid.innerHTML += `<div class="col-6"><button class="btn btn-outline-primary w-100 py-3 fw-bold fs-6" onclick="confirmarVariedad('${v.replace(/'/g, "\\'")}')">${v}</button></div>`;
+                    });
+                    
+                    // Botón opcional por si quiere el producto sin variedad
+                    grid.innerHTML += `<div class="col-12 mt-3"><button class="btn btn-light w-100 py-3 fw-bold text-secondary" onclick="confirmarVariedad('')">Sin variedad predefinida</button></div>`;
+                    
+                    modalVariedadesObj.show();
+                } else {
+                    // NO TIENE VARIEDADES: Pasa directo a agregarse al carrito
+                    procesarAgregadoTicket('');
+                }
+            });
+        }
+
+        function cancelarVariedad() {
+            productoPendiente = null;
+        }
+
+        function confirmarVariedad(variedad) {
+            modalVariedadesObj.hide();
+            procesarAgregadoTicket(variedad);
+        }
+
+        function procesarAgregadoTicket(nota) {
+            if (!productoPendiente) return;
+
+            // Buscamos si ya existe en pantalla. IMPORTANTE: Validamos que la nota también sea igual.
             let itemExistente = comanda.find(item => 
-                item.codigo === codigo && item.clase === clase && 
-                item.grupo === grupo && item.estado === 'nuevo' && 
-                item.nota === nota && item.cuenta === cuentaVisible 
+                item.codigo === productoPendiente.codigo && 
+                item.clase === productoPendiente.clase && 
+                item.grupo === productoPendiente.grupo && 
+                item.estado === 'nuevo' && 
+                item.nota === nota && 
+                item.cuenta === cuentaVisible 
             );
 
-            if (itemExistente) itemExistente.cantidad += cantAUsar;
-            else {
+            if (itemExistente) {
+                itemExistente.cantidad += productoPendiente.cantidad;
+            } else {
                 comanda.push({
-                    codigo: codigo, nombre: nombre, precio: parseFloat(precio),
-                    cantidad: cantAUsar, clase: clase, grupo: grupo,
-                    estado: 'nuevo', nota: nota, cuenta: cuentaVisible
+                    codigo: productoPendiente.codigo, 
+                    nombre: productoPendiente.nombre, 
+                    precio: parseFloat(productoPendiente.precio),
+                    cantidad: productoPendiente.cantidad, 
+                    clase: productoPendiente.clase, 
+                    grupo: productoPendiente.grupo, 
+                    estado: 'nuevo', 
+                    nota: nota, 
+                    cuenta: cuentaVisible
                 });
             }
             renderizarTicket();
 
-            // La API del backend ya está preparada para recibir la nota.
+            // Enviamos todo a Django, incluyendo la Nota
             fetch('/pos/api/ticket/agregar/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                 body: JSON.stringify({
-                    folio: '{{ folio }}', punto: '{{ punto }}', clase: clase, 
-                    grupo: grupo, producto: codigo, precio: precio, cantidad: cantAUsar,
+                    folio: '{{ folio }}', 
+                    punto: '{{ punto }}', 
+                    clase: productoPendiente.clase, 
+                    grupo: productoPendiente.grupo, 
+                    producto: productoPendiente.codigo, 
+                    precio: productoPendiente.precio, 
+                    cantidad: productoPendiente.cantidad,
                     cuenta: cuentaVisible,
                     nota: nota
                 })
             });
+
+            productoPendiente = null; // Limpiamos la memoria
         }
 
         function borrarDelTicket(index) {
