@@ -139,11 +139,9 @@ def get_punto_nombre(codigo_punto):
 
 def getEstadoMesas(codigoPunto):
     """Obtiene el estado consolidado de todas las mesas de un punto de venta.
-
-    Realiza una consulta compleja que une `Mesas`, `CtasMesas`, `ControlMesas`,
-    `Usuarios` y `Garzones` para determinar el estado visual de cada mesa.
-    Agrupa la información si una mesa tiene múltiples cuentas, sumando los
-    totales y priorizando el estado más crítico (ej. 'impresa' sobre 'ocupada').
+    
+    Refactorizado para usar múltiples consultas simples en lugar de un JOIN complejo,
+    mejorando el rendimiento y evitando bloqueos en escenarios con muchas mesas libres.
 
     Args:
         codigoPunto (str): El código del punto de venta a consultar.
@@ -153,76 +151,69 @@ def getEstadoMesas(codigoPunto):
                     de una mesa con detalles como 'numero', 'estado', 'total', etc.
     """
     with connection.cursor() as cursor:
-        sql = """
+        # 1. Obtener todas las mesas base para el punto de venta.
+        cursor.execute("SELECT Mesa FROM Mesas WHERE Punto = %s ORDER BY LEN(Mesa), Mesa", [codigoPunto])
+        # Inicializar cada mesa con su estado por defecto 'libre'.
+        mesas_dict = {
+            fila[0].strip(): {
+                'numero': fila[0].strip(), 'estado': 'libre', 'total': 0,
+                'bloqueada': False, 'usuarioBloqueo': '', 'nombreGarzon': '',
+                'fecha': '', 'hora': ''
+            } for fila in cursor.fetchall()
+        }
+
+        if not mesas_dict:
+            return []
+
+        # 2. Obtener todas las cuentas activas y sus detalles.
+        # Esta consulta es más simple y solo afecta a las mesas que realmente están ocupadas.
+        sql_cuentas = """
             SELECT 
-                m.Mesa,
-                c.Status AS EstadoCta,
-                c.Cuenta AS CuentaImpresa,
-                c.Total,
-                cm.Status AS MesaBloqueada,
-                u.Nombre AS UsuarioBloqueo,
-                g.Nombre AS NombreGarzon,
-                c.Fecha,
-                c.Hora
-            FROM Mesas m
-            LEFT JOIN CtasMesas c 
-                ON m.Mesa = c.Mesa AND m.Punto = c.Punto AND c.Status = '0'
-            LEFT JOIN ControlMesas cm 
-                ON m.Mesa = cm.NumMesa AND m.Punto = cm.PVenta
-            LEFT JOIN Usuarios u 
-                ON cm.Usuario = u.Id
-            LEFT JOIN Garzones g
-                ON c.Garzon = g.Codigo
-            WHERE m.Punto = %s
-            ORDER BY LEN(m.Mesa), m.Mesa
+                c.Mesa, c.Total, c.Cuenta, c.Fecha, c.Hora, g.Nombre AS NombreGarzon
+            FROM CtasMesas c
+            LEFT JOIN Garzones g ON c.Garzon = g.Codigo
+            WHERE c.Punto = %s AND c.Status = '0'
         """
-        cursor.execute(sql, [codigoPunto])
-        mesas_dict = {} 
-        
+        cursor.execute(sql_cuentas, [codigoPunto])
         for fila in cursor.fetchall():
-            numeroMesa = fila[0].strip()
-            estadoCta = fila[1]
-            cuentaImpresa = fila[2]
-            total = fila[3] if fila[3] else 0
-            mesaBloqueada = fila[4]
-            usuarioBloqueo = fila[5]
-            nombreGarzon = fila[6]
-            fecha_cta = fila[7]
-            hora_cta = fila[8]
-
-            # Definir estado visual base
-            estadoVisual = 'libre'
-            if estadoCta == '0':
-                if cuentaImpresa == '1':
-                    estadoVisual = 'impresa' 
-                else:
-                    estadoVisual = 'ocupada' 
-
-            if numeroMesa not in mesas_dict:
-                # 1ra vez que vemos la mesa: La creamos
-                mesas_dict[numeroMesa] = {
-                    'numero': numeroMesa,
-                    'estado': estadoVisual,
-                    'total': total,
-                    'bloqueada': True if str(mesaBloqueada) == '1' else False,
-                    'usuarioBloqueo': usuarioBloqueo.strip() if usuarioBloqueo else "",
-                    'nombreGarzon': nombreGarzon.strip() if nombreGarzon else "",
-                    'fecha': fecha_cta.strftime("%d/%m") if fecha_cta else "",
-                    'hora': hora_cta if hora_cta else ""
-                }
-            else:
-                # Ya existía (múltiples cuentas en 1 mesa): Priorizamos estado e incrementamos total
-                if estadoVisual == 'impresa':
-                    mesas_dict[numeroMesa]['estado'] = 'impresa'
-                elif estadoVisual == 'ocupada' and mesas_dict[numeroMesa]['estado'] == 'libre':
-                    mesas_dict[numeroMesa]['estado'] = 'ocupada'
+            mesa_num = fila[0].strip()
+            if mesa_num in mesas_dict:
+                total = fila[1] if fila[1] else 0
+                es_impresa = fila[2] == '1'
                 
-                mesas_dict[numeroMesa]['total'] += total
+                estado_actual = 'impresa' if es_impresa else 'ocupada'
+                mesa_obj = mesas_dict[mesa_num]
+
+                # Acumular total si hay cuentas divididas
+                mesa_obj['total'] += total
                 
-                # Rescatamos el garzón si la primera cuenta no lo tenía
-                if nombreGarzon and not mesas_dict[numeroMesa]['nombreGarzon']:
-                    mesas_dict[numeroMesa]['nombreGarzon'] = nombreGarzon.strip()
-            
+                # El estado 'impresa' tiene prioridad sobre 'ocupada'
+                if mesa_obj['estado'] != 'impresa':
+                    mesa_obj['estado'] = estado_actual
+                
+                # Rellenar datos solo si no estaban ya (para la primera cuenta de la mesa)
+                if not mesa_obj['nombreGarzon'] and fila[5]:
+                    mesa_obj['nombreGarzon'] = fila[5].strip()
+                if not mesa_obj['fecha'] and fila[3]:
+                    mesa_obj['fecha'] = fila[3].strftime("%d/%m")
+                if not mesa_obj['hora'] and fila[4]:
+                    mesa_obj['hora'] = fila[4]
+
+        # 3. Obtener las mesas bloqueadas desde ControlMesas.
+        sql_bloqueos = """
+            SELECT 
+                cm.NumMesa, u.Nombre AS UsuarioBloqueo
+            FROM ControlMesas cm
+            LEFT JOIN Usuarios u ON cm.Usuario = u.Id
+            WHERE cm.PVenta = %s AND cm.Status = '1'
+        """
+        cursor.execute(sql_bloqueos, [codigoPunto])
+        for fila in cursor.fetchall():
+            mesa_num = fila[0].strip()
+            if mesa_num in mesas_dict:
+                mesas_dict[mesa_num]['bloqueada'] = True
+                mesas_dict[mesa_num]['usuarioBloqueo'] = fila[1].strip() if fila[1] else ''
+
         return list(mesas_dict.values())
 
 # =====================================================================
