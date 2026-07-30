@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-(1)n*y5q2%@q&&3-!mv@(1l01be)=kpk(5qdc%8v2t7o9e%ou('
+# Cargar desde una variable de entorno. Si no existe, usa una clave insegura para desarrollo.
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change-me')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Cargar desde una variable de entorno. Por defecto es False para seguridad.
+DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Agrega aquí tu dominio de producción, ej: 'merquenpos.midominio.com'
 
 
 # Application definition
@@ -139,3 +142,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 SESSION_COOKIE_AGE = 14400 
 # Guarda la sesión en cada petición, lo que reinicia el contador de inactividad.
 SESSION_SAVE_EVERY_REQUEST = True
+
+# --- MEJORAS DE SEGURIDAD PARA COOKIES (en producción) ---
+# Solo enviar la cookie de sesión sobre HTTPS.
+SESSION_COOKIE_SECURE = not DEBUG
+# Solo enviar la cookie CSRF sobre HTTPS.
+CSRF_COOKIE_SECURE = not DEBUG
+# Previene que JavaScript del lado del cliente acceda a la cookie de sesión.
+SESSION_COOKIE_HTTPONLY = True
