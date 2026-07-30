@@ -331,6 +331,7 @@
                             data.mesas.forEach(mesa => {
                                 const esBloqueada = mesa.bloqueada ? 'True' : 'False';
                                 const garzon = mesa.nombreGarzon || 'Ocupada';
+                                const onclickAction = mesa.estado === 'libre' ? `mostrarModalCubiertos('${puntoCodigo}', '${mesa.numero}')` : `verificarMesaOcupada('${puntoCodigo}', '${mesa.numero}', '${esBloqueada}', '${mesa.usuarioBloqueo}')`;
                                 const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
                                 const estadoContenido = mesa.estado === 'libre' 
                                     ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
@@ -340,6 +341,7 @@
                                 const mesaCardHTML = `
                                     <div class="col">
                                         <div class="mesa-card estado-${mesa.estado}" onclick="abrirMesa('${puntoCodigo}', '${mesa.numero}', '${esBloqueada}', '${mesa.usuarioBloqueo}', '${mesa.estado}')">
+                                        <div class="mesa-card estado-${mesa.estado}" onclick="${onclickAction}">
                                             ${bloqueoBadge}
                                             <p class="mesa-numero">${mesa.numero}</p>
                                             ${estadoContenido}
@@ -377,6 +379,18 @@
         function abrirMesa(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
             
             // REGLA: Si la mesa la tiene tomada el Cajero u otro usuario en Visual Basic, no dejar entrar.
+        // --- LÓGICA DE INTERACCIÓN CON MESAS ---
+        function mostrarModalCubiertos(punto, numero) {
+            // MESA LIBRE: Muestra el Modal de Cubiertos
+            document.getElementById('formCubiertos').action = `/pos/mesa/${punto}/${numero}/`;
+            document.getElementById('lbl-mesa-modal').innerText = numero;
+            valorActual = ""; 
+            actualizarPantalla();
+            modalCubiertosObj.show();
+        }
+
+        function verificarMesaOcupada(punto, numero, estaBloqueada, usuarioBloqueo) {
+            // REGLA: Si la mesa está bloqueada por el sistema de escritorio, no dejar entrar.
             if (estaBloqueada === 'True') {
                 alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
                 return;
@@ -411,6 +425,25 @@
                         window.location.href = '/pos/mesa/' + punto + '/' + numero + '/';
                     });
             }
+            // MESA OCUPADA/IMPRESA: Consultamos por API si tiene productos o es una "mesa fantasma".
+            fetch(`/pos/api/mesa/verificar/${punto}/${numero}/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.vacia) {
+                        // Está vacía: Preparamos y abrimos el Modal de Anulación
+                        document.getElementById('lbl-mesa-anular').innerText = numero;
+                        document.getElementById('hdn-folio-anular').value = data.folio;
+                        document.getElementById('hdn-url-seguir').value = data.url_comanda;
+                        modalAnularObj.show();
+                    } else {
+                        // Tiene productos: Vamos directo a la comanda
+                        window.location.href = data.url_comanda;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error al verificar la mesa:", error);
+                    alert("Error de red al verificar el estado de la mesa. Intente nuevamente.");
+                });
         }
 
         // --- FUNCIONES DEL MODAL DE ANULACIÓN ---
