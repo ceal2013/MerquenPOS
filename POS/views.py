@@ -307,6 +307,10 @@ def api_anular_mesa(request):
     """Recibe la orden del Modal para anular el folio completo."""
     if request.method == 'POST':
         data = json.loads(request.body)
-        services.anular_mesa_completa(data.get('folio'))
+        # MEJORA: Se cambia la función que se llama.
+        # En lugar de usar la compleja 'anular_mesa_completa', que puede causar bloqueos
+        # en mesas sin consumos, usamos 'anular_cuenta'. Esta función es más simple
+        # y directa para este caso de uso, evitando la condición de carrera en la BD.
+        services.anular_cuenta(data.get('folio'))
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
