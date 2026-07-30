@@ -201,6 +201,24 @@
 
     </div> 
 
+    <!-- MODAL PARA SELECCIONAR VARIEDADES -->
+    <div class="modal fade" id="modalVariedades" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title fw-bold"><i class="fa-solid fa-tags me-2"></i>Seleccionar Variedad</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="fw-bold mb-3 text-secondary" id="lbl-producto-variedad">Producto</p>
+                    <div id="btn-container-variedades" class="d-grid gap-2">
+                        <!-- Botones de variedad se inyectarán aquí -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div class="modal fade" id="modalNota" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -302,12 +320,14 @@
         let modalNotaObj;
         let modalCubiertosObj;
         let modalMoverObj;
+        let modalVariedadesObj;
         let valorCubiertos = "";
 
         document.addEventListener("DOMContentLoaded", function() { 
             modalNotaObj = new bootstrap.Modal(document.getElementById('modalNota'));
             modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos'));
             modalMoverObj = new bootstrap.Modal(document.getElementById('modalMover'));
+            modalVariedadesObj = new bootstrap.Modal(document.getElementById('modalVariedades'));
             
             dibujarTabsCuentas(); 
             renderizarTicket(); 
@@ -334,9 +354,18 @@
                 .then(data => {
                     let html = '';
                     data.productos.forEach(p => {
+                        // Se pasa el objeto completo para tener todos los datos a mano
+                        const productoData = JSON.stringify({
+                            codigo: p.codigo,
+                            nombre: p.nombre,
+                            precio: p.precio,
+                            clase: clase,
+                            grupo: grupo
+                        }).replace(/'/g, "&apos;");
+
                         html += `
                         <div class="col">
-                            <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${p.nombre}', ${p.precio}, '${clase}', '${grupo}')">
+                            <button class="btn-pos btn-producto w-100" onclick="handleProductoClick(${productoData})">
                                 <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span></div>
                             </button>
                         </div>`;
@@ -370,6 +399,47 @@
         function subirNivel() {
             if (nivelActual === 'productos') cambiarNivel('grupos', nombreFamiliaActiva);
             else if (nivelActual === 'grupos') cambiarNivel('familias', 'FAMILIAS');
+        }
+
+        let productoPendiente = null;
+
+        function handleProductoClick(producto) {
+            fetch(`/pos/api/variedades/${producto.clase}/${producto.grupo}/${producto.codigo}/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.variedades && data.variedades.length > 0) {
+                        productoPendiente = producto;
+                        document.getElementById('lbl-producto-variedad').innerText = producto.nombre;
+                        const container = document.getElementById('btn-container-variedades');
+                        container.innerHTML = '';
+                        data.variedades.forEach(variedad => {
+                            container.innerHTML += `<button class="btn btn-outline-primary fw-bold py-2" onclick="seleccionarVariedad('${variedad.replace(/'/g, "\\'")}')">${variedad}</button>`;
+                        });
+                        container.innerHTML += `<hr><button class="btn btn-secondary fw-bold py-2" onclick="seleccionarVariedad('')">Agregar sin variedad</button>`;
+                        modalVariedadesObj.show();
+                    } else {
+                        agregarAlTicket(producto.codigo, producto.nombre, producto.precio, producto.clase, producto.grupo);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error al obtener variedades:", error);
+                    agregarAlTicket(producto.codigo, producto.nombre, producto.precio, producto.clase, producto.grupo);
+                });
+        }
+
+        function seleccionarVariedad(variedad) {
+            if (productoPendiente) {
+                agregarAlTicket(
+                    productoPendiente.codigo,
+                    productoPendiente.nombre,
+                    productoPendiente.precio,
+                    productoPendiente.clase,
+                    productoPendiente.grupo,
+                    variedad
+                );
+                productoPendiente = null;
+                modalVariedadesObj.hide();
+            }
         }
 
         function pedirMultiplicador() {
@@ -495,35 +565,39 @@
             renderizarTicket();
         }
 
-        function agregarAlTicket(codigo, nombre, precio, clase, grupo) {
+        function agregarAlTicket(codigo, nombre, precio, clase, grupo, nota = '') {
             let cantAUsar = multiplicadorActivo;
             multiplicadorActivo = 1;
             document.getElementById('txt-multiplicador').innerText = '1';
             document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
 
+            // La nota (variedad) ahora es parte del criterio para agrupar.
+            // Un producto con nota diferente es un ítem nuevo.
             let itemExistente = comanda.find(item => 
                 item.codigo === codigo && item.clase === clase && 
                 item.grupo === grupo && item.estado === 'nuevo' && 
-                item.nota === '' && item.cuenta === cuentaVisible 
+                item.nota === nota && item.cuenta === cuentaVisible 
             );
 
             if (itemExistente) itemExistente.cantidad += cantAUsar;
             else {
                 comanda.push({
                     codigo: codigo, nombre: nombre, precio: parseFloat(precio),
-                    cantidad: cantAUsar, clase: clase, grupo: grupo, 
-                    estado: 'nuevo', nota: '', cuenta: cuentaVisible
+                    cantidad: cantAUsar, clase: clase, grupo: grupo,
+                    estado: 'nuevo', nota: nota, cuenta: cuentaVisible
                 });
             }
             renderizarTicket();
 
+            // La API del backend ya está preparada para recibir la nota.
             fetch('/pos/api/ticket/agregar/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                 body: JSON.stringify({
                     folio: '{{ folio }}', punto: '{{ punto }}', clase: clase, 
                     grupo: grupo, producto: codigo, precio: precio, cantidad: cantAUsar,
-                    cuenta: cuentaVisible
+                    cuenta: cuentaVisible,
+                    nota: nota
                 })
             });
         }
