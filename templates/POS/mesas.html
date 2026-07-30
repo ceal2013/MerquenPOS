@@ -158,7 +158,7 @@
                                 {% for mesa in punto.mesas %}
                                     <div class="col">
                                         <div class="mesa-card estado-{{ mesa.estado }}" 
-                                             onclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', {{ mesa.bloqueada|yesno:"true,false" }}, '{{ mesa.usuarioBloqueo|escapejs }}', '{{ mesa.estado }}')">
+                                             onclick="{% if mesa.estado == 'libre' %}handleMesaLibre('{{ punto.codigo }}', '{{ mesa.numero }}'){% else %}handleMesaOcupada('{{ punto.codigo }}', '{{ mesa.numero }}', {{ mesa.bloqueada|yesno:"true,false" }}, '{{ mesa.usuarioBloqueo|escapejs }}'){% endif %}">
                                             
                                             {% if mesa.bloqueada %}
                                                 <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
@@ -331,7 +331,7 @@
                             data.mesas.forEach(mesa => {
                                 const garzon = mesa.nombreGarzon || 'Ocupada';
                                 const usuarioBloqueoEscaped = mesa.usuarioBloqueo.replace(/'/g, "\\'");
-                                const onclickAction = `abrirMesa('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}', '${mesa.estado}')`;
+                                const onclickAction = mesa.estado === 'libre' ? `handleMesaLibre('${puntoCodigo}', '${mesa.numero}')` : `handleMesaOcupada('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}')`;
                                 const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
                                 const estadoContenido = mesa.estado === 'libre' 
                                     ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
@@ -374,42 +374,42 @@
 
         });
 
-        // --- LÓGICA DE INTERACCIÓN CON MESAS (UNIFICADA) ---
-        function abrirMesa(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
+        // --- LÓGICA DE INTERACCIÓN CON MESAS ---
+        function handleMesaLibre(punto, numero) {
+            // Muestra el Modal de Cubiertos para una mesa libre.
+            document.getElementById('formCubiertos').action = `/pos/mesa/${punto}/${numero}/`;
+            document.getElementById('lbl-mesa-modal').innerText = numero;
+            valorActual = ""; 
+            actualizarPantalla();
+            modalCubiertosObj.show();
+        }
+
+        function handleMesaOcupada(punto, numero, estaBloqueada, usuarioBloqueo) {
             // REGLA: Si la mesa está bloqueada (booleano true), no dejar entrar.
             if (estaBloqueada === true) {
                 alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
                 return;
             }
 
-            if (estadoVisual === 'libre') {
-                // MESA LIBRE: Muestra el Modal de Cubiertos
-                document.getElementById('formCubiertos').action = `/pos/mesa/${punto}/${numero}/`;
-                document.getElementById('lbl-mesa-modal').innerText = numero;
-                valorActual = ""; 
-                actualizarPantalla();
-                modalCubiertosObj.show();
-            } else {
-                // MESA OCUPADA/IMPRESA: Consultamos por API si tiene productos o es una "mesa fantasma".
-                fetch(`/pos/api/mesa/verificar/${punto}/${numero}/`)
-                    .then(res => res.json())
-                    .then(data => {
-                        if (data.vacia) {
-                            // Está vacía: Preparamos y abrimos el Modal de Anulación
-                            document.getElementById('lbl-mesa-anular').innerText = numero;
-                            document.getElementById('hdn-folio-anular').value = data.folio;
-                            document.getElementById('hdn-url-seguir').value = data.url_comanda;
-                            modalAnularObj.show();
-                        } else {
-                            // Tiene productos: Vamos directo a la comanda
-                            window.location.href = data.url_comanda;
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Error al verificar la mesa:", error);
-                        alert("Error de red al verificar el estado de la mesa. Intente nuevamente.");
-                    });
-            }
+            // MESA OCUPADA/IMPRESA: Consultamos por API si tiene productos o es una "mesa fantasma".
+            fetch(`/pos/api/mesa/verificar/${punto}/${numero}/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.vacia) {
+                        // Está vacía: Preparamos y abrimos el Modal de Anulación
+                        document.getElementById('lbl-mesa-anular').innerText = numero;
+                        document.getElementById('hdn-folio-anular').value = data.folio;
+                        document.getElementById('hdn-url-seguir').value = data.url_comanda;
+                        modalAnularObj.show();
+                    } else {
+                        // Tiene productos: Vamos directo a la comanda
+                        window.location.href = data.url_comanda;
+                    }
+                })
+                .catch(error => {
+                    console.error("Error al verificar la mesa:", error);
+                    alert("Error de red al verificar el estado de la mesa. Intente nuevamente.");
+                });
         }
 
         // --- FUNCIONES DEL MODAL DE ANULACIÓN ---
