@@ -294,17 +294,7 @@
             modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos'));
             modalAnularObj = new bootstrap.Modal(document.getElementById('modalAnularMesa'));
 
-            // 2. Lógica para recordar Pestaña (Punto de Venta) usando LocalStorage
-            let activeTab = localStorage.getItem('activeTab_Mesas');
-            if (activeTab) {
-                let tabElement = document.getElementById('tab-' + activeTab);
-                if (tabElement) {
-                    let tab = new bootstrap.Tab(tabElement);
-                    tab.show();
-                }
-            }
-            
-            // 3. Lógica de carga dinámica para las pestañas
+            // 2. Lógica de carga dinámica para las pestañas (SE ADJUNTA EL LISTENER PRIMERO)
             const tabContainer = document.getElementById('puntosVentaTab');
             tabContainer.addEventListener('show.bs.tab', function (event) {
                 const tab = event.target; // La pestaña que se va a mostrar
@@ -368,6 +358,18 @@
                         mesasContainer.innerHTML = '<div class="col-12"><p class="text-center text-danger w-100 py-5">No se pudieron cargar las mesas. Intente de nuevo.</p></div>';
                     });
             });
+
+            // 3. Lógica para recordar y activar la Pestaña guardada (AHORA SE DISPARA EL CLIC)
+            // Esto se hace después de adjuntar el listener para evitar condiciones de carrera.
+            let activeTab = localStorage.getItem('activeTab_Mesas');
+            if (activeTab) {
+                let tabElement = document.getElementById('tab-' + activeTab);
+                if (tabElement) {
+                    // Simulamos un clic directo. El listener adjuntado arriba se encargará
+                    // de hacer la llamada AJAX si es necesario.
+                    tabElement.click();
+                }
+            }
 
         });
 
