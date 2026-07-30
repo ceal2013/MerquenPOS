@@ -158,7 +158,7 @@
                                 {% for mesa in punto.mesas %}
                                     <div class="col">
                                         <div class="mesa-card estado-{{ mesa.estado }}" 
-                                             onclick="{% if mesa.estado == 'libre' %}handleMesaLibre('{{ punto.codigo }}', '{{ mesa.numero }}'){% else %}handleMesaOcupada('{{ punto.codigo }}', '{{ mesa.numero }}', {{ mesa.bloqueada|yesno:"true,false" }}, '{{ mesa.usuarioBloqueo|escapejs }}'){% endif %}">
+                                             onclick="handleMesaCardClick('{{ punto.codigo }}', '{{ mesa.numero }}', {{ mesa.bloqueada|yesno:"true,false" }}, '{{ mesa.usuarioBloqueo|escapejs }}', '{{ mesa.estado }}')">
                                             
                                             {% if mesa.bloqueada %}
                                                 <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
@@ -331,7 +331,7 @@
                             data.mesas.forEach(mesa => {
                                 const garzon = mesa.nombreGarzon || 'Ocupada';
                                 const usuarioBloqueoEscaped = mesa.usuarioBloqueo.replace(/'/g, "\\'");
-                                const onclickAction = mesa.estado === 'libre' ? `handleMesaLibre('${puntoCodigo}', '${mesa.numero}')` : `handleMesaOcupada('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}')`;
+                                const onclickAction = `handleMesaCardClick('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}', '${mesa.estado}')`;
                                 const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
                                 const estadoContenido = mesa.estado === 'libre' 
                                     ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
@@ -375,6 +375,16 @@
         });
 
         // --- LÓGICA DE INTERACCIÓN CON MESAS ---
+        function handleMesaCardClick(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
+            if (estadoVisual === 'libre') {
+                handleMesaLibre(punto, numero);
+            } else {
+                // Para mesas ocupadas/impresas, la lógica es la misma que antes.
+                // La función handleMesaOcupada ya maneja el bloqueo.
+                handleMesaOcupada(punto, numero, estaBloqueada, usuarioBloqueo);
+            }
+        }
+
         function handleMesaLibre(punto, numero) {
             // Muestra el Modal de Cubiertos para una mesa libre.
             document.getElementById('formCubiertos').action = `/pos/mesa/${punto}/${numero}/`;
