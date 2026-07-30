@@ -661,6 +661,18 @@ def get_productos_grupo(punto, clase, grupo):
         cursor.execute(sql, [punto, clase, grupo])
         return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': f[3] == '1'} for f in cursor.fetchall()]
 
+def obtener_variedades_producto(clase, grupo, producto):
+    """Obtiene la lista de variedades predefinidas para un producto específico."""
+    with connection.cursor() as cursor:
+        sql = """
+            SELECT Variedad 
+            FROM Variedades 
+            WHERE VClase = %s AND VGrupo = %s AND VProducto = %s
+        """
+        cursor.execute(sql, [clase, grupo, producto])
+        # Limpiamos espacios en blanco extra que deja Visual Basic en los CHAR
+        return [fila[0].strip() for fila in cursor.fetchall()]
+
 
 # =====================================================================
 # BLOQUE 5: GESTIÓN DE LA COMANDA (Consumos)
@@ -710,48 +722,31 @@ def obtener_consumos_mesa(folio):
         return consumos
     
 @transaction.atomic
-def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta='1'):
-    """Agrega un producto a la comanda (tabla Consumos) o actualiza su cantidad.
-
-    Si el producto (en la misma sub-cuenta) ya existe en la comanda y no ha
-    sido comandado (`Flag='0'`), incrementa su cantidad. De lo contrario,
-    inserta un nuevo registro en la tabla `Consumos`.
-
-    Args:
-        folio (str): Folio de la cuenta.
-        punto (str): Código del punto de venta.
-        clase (str): Código de la familia del producto.
-        grupo (str): Código del grupo del producto.
-        producto (str): Código del producto.
-        precio (float): Precio del producto.
-        cantidad (float): Cantidad a agregar.
-        usuario_id (int): ID del usuario que agrega el producto.
-        cuenta (str, optional): Número de la sub-cuenta. Defaults to '1'.
-    """
+def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta='1', nota=''):
+    """Inserta o actualiza un producto en Consumos. Ahora diferencia por la Nota (Variedad)."""
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
 
     with connection.cursor() as cursor:
-        # Filtramos por Cuenta para no mezclar un mismo producto en cuentas separadas
+        # IMPORTANTE: Ahora la Nota es parte del filtro para agrupar o separar productos
         cursor.execute("""
             SELECT SubIndice FROM Consumos 
             WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s 
-              AND Cuenta = %s
+              AND Cuenta = %s AND Nota = %s
               AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
               AND (sw IS NULL OR sw = '' OR sw = '0')
-        """, [folio, producto, clase, grupo, cuenta])
+        """, [folio, producto, clase, grupo, cuenta, nota])
         fila = cursor.fetchone()
 
         if fila:
             subindice = fila[0]
             cursor.execute("UPDATE Consumos SET Cantidad = Cantidad + %s WHERE SubIndice = %s", [cantidad, subindice])
         else:
-            cursor.execute("SELECT Mesa FROM CtasMesas WHERE Folio = %s", [folio])
+            cursor.execute("SELECT TOP 1 Mesa FROM CtasMesas WHERE Folio = %s", [folio])
             fila_mesa = cursor.fetchone()
             mesa = fila_mesa[0] if fila_mesa else ''
 
-            # Inyectamos el valor 'cuenta' en el campo 'Cuenta' de Consumos
             sql_insert = """
                 INSERT INTO Consumos (
                     Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
@@ -764,13 +759,13 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
                     %s, %s, %s, %s, %s, 0, %s,
-                    '0', CONVERT(varchar(5), GETDATE(), 108), '', 'WEB_POS', 0, 0
+                    '0', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
                 )
             """
             cursor.execute(sql_insert, [
                 punto, mesa, grupo, producto, cantidad, precio,
                 folio, fecha_proceso, turno_bd, clase,
-                cuenta, usuario_id, clase, grupo, producto, precio
+                cuenta, usuario_id, clase, grupo, producto, precio, nota
             ])
             
             subindice_generado = cursor.fetchone()[0]

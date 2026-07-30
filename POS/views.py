@@ -179,18 +179,18 @@ def api_get_productos(request, punto, clase, grupo):
 
 @custom_login_required
 def api_agregar_ticket(request):
-    """Agrega un producto, ahora lee el parámetro 'cuenta' desde el JSON."""
+    """Agrega un producto, recibiendo la cuenta y opcionalmente la nota (variedad)."""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            # ... rescatas tus variables antiguas y sumas la cuenta:
             folio, punto, clase, grupo = data.get('folio'), data.get('punto'), data.get('clase'), data.get('grupo')
             producto, precio, cantidad = data.get('producto'), data.get('precio'), data.get('cantidad')
-            cuenta = data.get('cuenta', '1') # Capturamos la cuenta actual
+            cuenta = data.get('cuenta', '1')
+            nota = data.get('nota', '') # Recibimos la nota inicial
             
             usuario_id = request.session['usuario_activo']['id']
             
-            services.agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta)
+            services.agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta, nota)
             return JsonResponse({'status': 'ok'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
@@ -314,3 +314,9 @@ def api_anular_mesa(request):
         services.anular_cuenta(data.get('folio'))
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
+def api_get_variedades(request, clase, grupo, producto):
+    """Devuelve las variedades disponibles para un producto específico."""
+    variedades = services.obtener_variedades_producto(clase, grupo, producto)
+    return JsonResponse({'variedades': variedades})

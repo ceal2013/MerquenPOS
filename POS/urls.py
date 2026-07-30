@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/ticket/anular/', views.api_anular_ticket, name='api_anular_ticket'),
     path('api/ticket/cuenta_extra/', views.api_crear_cuenta, name='api_crear_cuenta'),
     path('api/ticket/mover/', views.api_mover_producto, name='api_mover_producto'),
+    path('api/variedades/<str:clase>/<str:grupo>/<str:producto>/', views.api_get_variedades, name='api_variedades'),
     path('api/ticket/cubiertos/', views.api_actualizar_cubiertos, name='api_actualizar_cubiertos'),
     
     # --- ENDPOINTS AJAX (Control de Mesas) ---
