@@ -17,6 +17,9 @@ def login_global_view(request):
             # Esto genera un nuevo ID de sesión, invalidando el anterior.
             request.session.cycle_key()
             
+            # Guardamos el nombre del local en la sesión para no consultarlo en cada vista.
+            request.session['nombre_local'] = nombre_local
+
             # Ahora guardamos los datos del usuario en la nueva sesión segura.
             request.session['usuario_activo'] = datos_usuario
             # Lo enviamos a las mesas (crearemos esta ruta en el futuro)

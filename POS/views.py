@@ -51,7 +51,7 @@ def seleccion_mesas_view(request):
     return render(request, 'POS/mesas.html', {
         'usuario': usuario,
         'puntos_con_mesas': puntos_con_mesas,
-        'nombre_local': services.obtener_nombre_local(),
+        'nombre_local': request.session.get('nombre_local', 'Restaurante'),
         'fecha_proceso': datos_turno['fecha'],
         'turno_activo': datos_turno['turno_texto']
     })
@@ -88,7 +88,7 @@ def abrir_mesa_view(request, punto, numero):
             # Si es GET, mostramos la alerta de Mesa Vacía
             return render(request, 'POS/confirmar_anulacion.html', {
                 'punto': punto, 'numero': numero, 'folio': folio_activo,
-                'nombre_local': services.obtener_nombre_local()
+                'nombre_local': request.session.get('nombre_local', 'Restaurante')
             })
             
         # Si la mesa está abierta Y TIENE PRODUCTOS, entra directo a la comanda
@@ -107,7 +107,7 @@ def abrir_mesa_view(request, punto, numero):
     return render(request, 'POS/cubiertos.html', {
         'punto': punto,
         'numero': numero,
-        'nombre_local': services.obtener_nombre_local()
+        'nombre_local': request.session.get('nombre_local', 'Restaurante')
     })
 
 
@@ -144,7 +144,7 @@ def comanda_view(request, punto, numero, folio):
         'nombre_garzon': detalles_cuenta['nombre_garzon'],
         'fecha_proceso': datos_turno['fecha'],
         'turno_activo': datos_turno['turno_texto'],
-        'nombre_local': services.obtener_nombre_local(),
+        'nombre_local': request.session.get('nombre_local', 'Restaurante'),
         'nombre_punto': nombre_punto
     })
 
