@@ -23,4 +23,5 @@ urlpatterns = [
     # --- ENDPOINTS AJAX (Control de Mesas) ---
     path('api/mesa/verificar/<str:punto>/<str:numero>/', views.api_verificar_mesa_vacia, name='api_verificar_mesa_vacia'),
     path('api/mesa/anular/', views.api_anular_mesa, name='api_anular_mesa'),
+    path('api/mesas/<str:punto>/', views.api_get_mesas_punto, name='api_get_mesas_punto'),
 ]

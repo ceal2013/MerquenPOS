@@ -26,14 +26,24 @@ def seleccion_mesas_view(request):
     if not puntos_bd:
         return render(request, 'POS/mesas.html', {'error': 'No hay puntos de venta configurados.'})
 
-    # Lógica: Agrupamos las mesas por su punto de venta correspondiente para las pestañas
+    # Mejora de rendimiento: Cargamos inicialmente solo las mesas del primer punto de venta.
+    # Las mesas de los otros puntos se cargarán dinámicamente con AJAX al hacer clic en su pestaña.
     puntos_con_mesas = []
-    for punto in puntos_bd:
-        mesas_del_punto = services.getEstadoMesas(punto['codigo'])
+    if puntos_bd:
+        # Cargamos el primero
+        primer_punto = puntos_bd[0]
+        mesas_primer_punto = services.getEstadoMesas(primer_punto['codigo'])
         puntos_con_mesas.append({
-            'codigo': punto['codigo'],
-            'nombre': punto['nombre'],
-            'mesas': mesas_del_punto 
+            'codigo': primer_punto['codigo'],
+            'nombre': primer_punto['nombre'],
+            'mesas': mesas_primer_punto
+        })
+        # Los demás se agregan vacíos, para ser llenados por JS
+        for punto in puntos_bd[1:]:
+            puntos_con_mesas.append({
+                'codigo': punto['codigo'],
+                'nombre': punto['nombre'],
+                'mesas': [] # Se cargará con AJAX
         })
 
     datos_turno = services.obtener_turno_activo()
@@ -142,6 +152,13 @@ def comanda_view(request, punto, numero, folio):
 # =====================================================================
 # 2. ENDPOINTS AJAX - CARGA DINÁMICA DEL MENÚ (GET)
 # =====================================================================
+
+@custom_login_required
+def api_get_mesas_punto(request, punto):
+    """Devuelve el estado de las mesas para un punto de venta específico en formato JSON."""
+    mesas = services.getEstadoMesas(punto)
+    return JsonResponse({'mesas': mesas})
+
 
 @custom_login_required
 def api_get_grupos(request, punto, clase):
