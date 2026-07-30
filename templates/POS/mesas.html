@@ -376,50 +376,46 @@
 
         // --- LÓGICA DE INTERACCIÓN CON MESAS ---
         function handleMesaCardClick(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
-            if (estadoVisual === 'libre') {
-                handleMesaLibre(punto, numero);
-            } else {
-                // Para mesas ocupadas/impresas, la lógica es la misma que antes.
-                // La función handleMesaOcupada ya maneja el bloqueo.
-                handleMesaOcupada(punto, numero, estaBloqueada, usuarioBloqueo);
-            }
-        }
+            // Esta función unificada maneja el clic en cualquier tarjeta de mesa.
 
-        function handleMesaLibre(punto, numero) {
-            // Muestra el Modal de Cubiertos para una mesa libre.
-            document.getElementById('formCubiertos').action = `/pos/mesa/${punto}/${numero}/`;
-            document.getElementById('lbl-mesa-modal').innerText = numero;
-            valorActual = ""; 
-            actualizarPantalla();
-            modalCubiertosObj.show();
-        }
-
-        function handleMesaOcupada(punto, numero, estaBloqueada, usuarioBloqueo) {
+            // CASO 1: La mesa está bloqueada por el sistema de escritorio.
             // REGLA: Si la mesa está bloqueada (booleano true), no dejar entrar.
             if (estaBloqueada === true) {
                 alert("MESA OCUPADA\nEsta mesa está siendo utilizada por: " + usuarioBloqueo);
                 return;
             }
 
-            // MESA OCUPADA/IMPRESA: Consultamos por API si tiene productos o es una "mesa fantasma".
-            fetch(`/pos/api/mesa/verificar/${punto}/${numero}/`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.vacia) {
-                        // Está vacía: Preparamos y abrimos el Modal de Anulación
-                        document.getElementById('lbl-mesa-anular').innerText = numero;
-                        document.getElementById('hdn-folio-anular').value = data.folio;
-                        document.getElementById('hdn-url-seguir').value = data.url_comanda;
-                        modalAnularObj.show();
-                    } else {
-                        // Tiene productos: Vamos directo a la comanda
-                        window.location.href = data.url_comanda;
-                    }
-                })
-                .catch(error => {
-                    console.error("Error al verificar la mesa:", error);
-                    alert("Error de red al verificar el estado de la mesa. Intente nuevamente.");
-                });
+            // CASO 2: La mesa está libre.
+            if (estadoVisual === 'libre') {
+                // Muestra el Modal de Cubiertos para abrir la mesa.
+                document.getElementById('formCubiertos').action = `/pos/mesa/${punto}/${numero}/`;
+                document.getElementById('lbl-mesa-modal').innerText = numero;
+                valorActual = ""; 
+                actualizarPantalla();
+                modalCubiertosObj.show();
+            } 
+            // CASO 3: La mesa está ocupada o impresa.
+            else {
+                // Consultamos por API si tiene productos o es una "mesa fantasma".
+                fetch(`/pos/api/mesa/verificar/${punto}/${numero}/`)
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.vacia) {
+                            // Está vacía: Preparamos y abrimos el Modal de Anulación.
+                            document.getElementById('lbl-mesa-anular').innerText = numero;
+                            document.getElementById('hdn-folio-anular').value = data.folio;
+                            document.getElementById('hdn-url-seguir').value = data.url_comanda;
+                            modalAnularObj.show();
+                        } else {
+                            // Tiene productos: Vamos directo a la comanda.
+                            window.location.href = data.url_comanda;
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Error al verificar la mesa:", error);
+                        alert("Error de red al verificar el estado de la mesa. Intente nuevamente.");
+                    });
+            }
         }
 
         // --- FUNCIONES DEL MODAL DE ANULACIÓN ---
