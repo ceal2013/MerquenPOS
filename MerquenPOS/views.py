@@ -13,7 +13,11 @@ def login_global_view(request):
         datos_usuario = services.verificar_login(usuario_digitado, clave_digitada)
         
         if datos_usuario:
-            # Guardamos los datos en la sesión
+            # Mejora de seguridad: Rotamos la clave de sesión para prevenir "session fixation".
+            # Esto genera un nuevo ID de sesión, invalidando el anterior.
+            request.session.cycle_key()
+            
+            # Ahora guardamos los datos del usuario en la nueva sesión segura.
             request.session['usuario_activo'] = datos_usuario
             # Lo enviamos a las mesas (crearemos esta ruta en el futuro)
             return redirect('seleccion_mesas') 

@@ -131,3 +131,11 @@ STATICFILES_DIRS = [
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# =====================================================================
+# CONFIGURACIÓN DE SESIONES
+# =====================================================================
+# La sesión expirará después de 4 horas (14400 segundos) de inactividad.
+SESSION_COOKIE_AGE = 14400 
+# Guarda la sesión en cada petición, lo que reinicia el contador de inactividad.
+SESSION_SAVE_EVERY_REQUEST = True
