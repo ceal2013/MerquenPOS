@@ -853,6 +853,11 @@ def comandar_ticket(folio):
         cursor.execute(sql_nuevos, [folio])
         productos_a_despachar = cursor.fetchall()
 
+        # Cláusula de guarda: Si no hay productos nuevos para comandar,
+        # no se hace nada y la función termina para evitar transacciones vacías.
+        if not productos_a_despachar:
+            return
+
         # PASO 2: Repartir cada producto a sus áreas de impresión
         for prod in productos_a_despachar:
             indice = prod[0]
