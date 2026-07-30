@@ -849,17 +849,18 @@ def comandar_ticket(folio):
         if not productos_a_despachar:
             return
 
-        # PASO 2: Repartir cada producto a sus áreas de impresión
+        # PASO 2: Agrupar los productos por área de impresión para inserción masiva.
+        # Esto es más eficiente que hacer un INSERT por cada producto.
+        datos_para_impresion = {tabla: [] for tabla in destinos_impresion.values()}
+
         for prod in productos_a_despachar:
-            indice = prod[0]
-            subindice = prod[1]
-            cantidad = prod[2]
-            folio_consumo = prod[3]
-            nota = prod[4] if prod[4] else ''
-            nombre_producto = prod[5]
-            es_menu = prod[6]
-            desp1 = parse_despacho(prod[7])
-            desp2 = parse_despacho(prod[8])
+            # Desempaquetamos los datos para mayor claridad
+            (indice, subindice, cantidad, folio_consumo, nota, 
+             nombre_producto, es_menu, despacho1_raw, despacho2_raw) = prod
+            
+            nota_limpia = nota if nota else ''
+            desp1 = parse_despacho(despacho1_raw)
+            desp2 = parse_despacho(despacho2_raw)
 
             # Usamos un 'Set' (conjunto) para evitar que si desp1 y desp2 son iguales, 
             # se imprima dos veces en la misma zona.
@@ -868,22 +869,29 @@ def comandar_ticket(folio):
                 tablas_a_insertar.add(destinos_impresion[desp1])
             if desp2 in destinos_impresion:
                 tablas_a_insertar.add(destinos_impresion[desp2])
+            
+            # Preparamos la tupla de datos para la inserción
+            datos_fila = (
+                indice, subindice, nombre_producto, cantidad, 
+                folio_consumo, es_menu, nota_limpia
+            )
 
-            # Insertamos en cada tabla requerida
+            # Agregamos los datos a la lista correspondiente de cada área de impresión
             for nombre_tabla in tablas_a_insertar:
-                # Al armar SQL dinámico, el nombre de la tabla no puede ser un parámetro %s por seguridad/sintaxis,
-                # se inyecta directamente con f-strings (esto es seguro porque viene de nuestro propio diccionario hardcodeado)
+                datos_para_impresion[nombre_tabla].append(datos_fila)
+
+        # PASO 3: Ejecutar las inserciones masivas (bulk inserts) por cada área.
+        for nombre_tabla, datos in datos_para_impresion.items():
+            if datos: # Solo si hay algo que insertar en esta área
+                # El nombre de la tabla se inyecta de forma segura desde nuestro diccionario.
                 sql_insert_despacho = f"""
                     INSERT INTO {nombre_tabla} 
                     (Indice, SubIndice, Nproducto, Cantidad, folio, menu, nota)
                     VALUES (%s, %s, %s, %s, %s, %s, %s)
                 """
-                cursor.execute(sql_insert_despacho, [
-                    indice, subindice, nombre_producto, cantidad, 
-                    folio_consumo, es_menu, nota
-                ])
+                cursor.executemany(sql_insert_despacho, datos)
 
-        # PASO 3: BOTÓN CONFIRMAR: Cambia todo a Flag '1' (Comandados) bloqueándolos para el garzón
+        # PASO 4: Marcar todos los productos como comandados.
         sql_update_flag = """
             UPDATE Consumos 
             SET Flag = '1' 
