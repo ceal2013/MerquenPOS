@@ -138,62 +138,59 @@
                         <button class="nav-link {% if forloop.first %}active{% endif %}" 
                                 id="tab-{{ punto.codigo }}" 
                                 data-bs-toggle="tab" 
-                                data-bs-target="#panel-{{ punto.codigo }}" 
-                                type="button" role="tab">
+                                data-bs-target="#panel-{{ punto.codigo }}"
+                                type="button" role="tab"
+                                data-punto-codigo="{{ punto.codigo }}"
+                                data-loaded="{% if punto.mesas %}true{% else %}false{% endif %}">
                             {{ punto.nombre }}
                         </button>
                     </li>
                 {% endfor %}
             </ul>
-
+            
             <div class="tab-content" id="puntosVentaTabContent">
                 {% for punto in puntos_con_mesas %}
-                    
                     <div class="tab-pane fade {% if forloop.first %}show active{% endif %}" 
                          id="panel-{{ punto.codigo }}" role="tabpanel" tabindex="0">
                         
-                        <div class="row row-cols-3 row-cols-sm-4 row-cols-md-5 row-cols-lg-6 row-cols-xl-8 g-2">
-                            
-                            {% for mesa in punto.mesas %}
-                                <div class="col">
-                                    
-                                    <div class="mesa-card estado-{{ mesa.estado }}" 
-                                         onclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}', '{{ mesa.estado }}')">
-                                        
-                                        {% if mesa.bloqueada %}
-                                            <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
-                                                <i class="fa-solid fa-lock"></i>
-                                            </div>
-                                        {% endif %}
-
-                                        <p class="mesa-numero">{{ mesa.numero }}</p>
-                                        
-                                        {% if mesa.estado == 'libre' %}
-                                            <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
-                                        {% else %}
-                                            <p class="mesa-estado-texto" title="Atendida por: {{ mesa.nombreGarzon|default:'Ocupada' }}">
-                                                <i class="fa-solid fa-clipboard-user me-1"></i> 
-                                                {% if mesa.nombreGarzon %} 
-                                                    {{ mesa.nombreGarzon }} 
-                                                {% else %} 
-                                                    Ocupada 
-                                                {% endif %}
-                                            </p>
+                        <div class="mesas-container row row-cols-3 row-cols-sm-4 row-cols-md-5 row-cols-lg-6 row-cols-xl-8 g-2">
+                            {% if punto.mesas %}
+                                {% for mesa in punto.mesas %}
+                                    <div class="col">
+                                        <div class="mesa-card estado-{{ mesa.estado }}" 
+                                             onclick="abrirMesa('{{ punto.codigo }}', '{{ mesa.numero }}', '{{ mesa.bloqueada }}', '{{ mesa.usuarioBloqueo }}', '{{ mesa.estado }}')">
                                             
-                                            <div class="mesa-tiempo">
-                                                <div>{{ mesa.fecha }}</div>
-                                                <div>{{ mesa.hora }}</div>
-                                            </div>
-                                        {% endif %}
-                                        
+                                            {% if mesa.bloqueada %}
+                                                <div class="bloqueo-badge" title="Bloqueada por {{ mesa.usuarioBloqueo }}">
+                                                    <i class="fa-solid fa-lock"></i>
+                                                </div>
+                                            {% endif %}
+
+                                            <p class="mesa-numero">{{ mesa.numero }}</p>
+                                            
+                                            {% if mesa.estado == 'libre' %}
+                                                <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
+                                            {% else %}
+                                                <p class="mesa-estado-texto" title="Atendida por: {{ mesa.nombreGarzon|default:'Ocupada' }}">
+                                                    <i class="fa-solid fa-clipboard-user me-1"></i> 
+                                                    {{ mesa.nombreGarzon|default:'Ocupada' }}
+                                                </p>
+                                                <div class="mesa-tiempo">
+                                                    <div>{{ mesa.fecha }}</div>
+                                                    <div>{{ mesa.hora }}</div>
+                                                </div>
+                                            {% endif %}
+                                        </div>
                                     </div>
+                                {% endfor %}
+                            {% else %}
+                                <!-- Placeholder para el spinner de carga -->
+                                <div class="col-12 text-center py-5">
+                                    <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                                        <span class="visually-hidden">Cargando...</span>
                                     </div>
-                            {% empty %}
-                                <div class="col-12">
-                                    <p class="text-muted text-center py-5">No hay mesas configuradas en este sector.</p>
                                 </div>
-                            {% endfor %}
-                            
+                            {% endif %}
                         </div> 
                     </div>
                 {% endfor %}
@@ -307,14 +304,73 @@
                 }
             }
             
-            // 3. Escuchar el cambio de pestañas para guardarlo
-            let tabs = document.querySelectorAll('button[data-bs-toggle="tab"]');
-            tabs.forEach(t => {
-                t.addEventListener('shown.bs.tab', function(e) {
-                    let puntoId = e.target.id.replace('tab-', '');
-                    localStorage.setItem('activeTab_Mesas', puntoId);
-                });
+            // 3. Lógica de carga dinámica para las pestañas
+            const tabContainer = document.getElementById('puntosVentaTab');
+            tabContainer.addEventListener('show.bs.tab', function (event) {
+                const tab = event.target; // La pestaña que se va a mostrar
+                const puntoId = tab.id.replace('tab-', '');
+                
+                // Guardamos la pestaña activa en localStorage
+                localStorage.setItem('activeTab_Mesas', puntoId);
+
+                const isLoaded = tab.dataset.loaded === 'true';
+                if (isLoaded) {
+                    // Si ya está cargado, no hacemos nada
+                    return;
+                }
+
+                const puntoCodigo = tab.dataset.puntoCodigo;
+                const panelId = tab.dataset.bsTarget;
+                const panel = document.querySelector(panelId);
+                const mesasContainer = panel.querySelector('.mesas-container');
+
+                // Hacemos la llamada a la API para obtener las mesas
+                fetch(`/pos/api/mesas/${puntoCodigo}/`)
+                    .then(response => {
+                        if (!response.ok) throw new Error('Error de red al cargar las mesas.');
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Limpiamos el spinner de carga
+                        mesasContainer.innerHTML = '';
+
+                        if (data.mesas.length === 0) {
+                            mesasContainer.innerHTML = '<div class="col-12"><p class="text-muted text-center py-5">No hay mesas configuradas en este sector.</p></div>';
+                        } else {
+                            // Creamos las tarjetas de las mesas dinámicamente
+                            data.mesas.forEach(mesa => {
+                                const esBloqueada = mesa.bloqueada ? 'True' : 'False';
+                                const garzon = mesa.nombreGarzon || 'Ocupada';
+                                const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
+                                const estadoContenido = mesa.estado === 'libre' 
+                                    ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
+                                    : `<p class="mesa-estado-texto" title="Atendida por: ${garzon}"><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</p>
+                                       <div class="mesa-tiempo"><div>${mesa.fecha}</div><div>${mesa.hora}</div></div>`;
+
+                                const mesaCardHTML = `
+                                    <div class="col">
+                                        <div class="mesa-card estado-${mesa.estado}" onclick="abrirMesa('${puntoCodigo}', '${mesa.numero}', '${esBloqueada}', '${mesa.usuarioBloqueo}', '${mesa.estado}')">
+                                            ${bloqueoBadge}
+                                            <p class="mesa-numero">${mesa.numero}</p>
+                                            ${estadoContenido}
+                                        </div>
+                                    </div>
+                                `;
+                                mesasContainer.insertAdjacentHTML('beforeend', mesaCardHTML);
+                            });
+                        }
+
+                        // Marcamos la pestaña como cargada para no volver a pedir los datos
+                        tab.dataset.loaded = 'true';
+                    })
+                    .catch(error => {
+                        console.error('Error en la petición AJAX:', error);
+                        mesasContainer.innerHTML = '<div class="col-12"><p class="text-center text-danger w-100 py-5">No se pudieron cargar las mesas. Intente de nuevo.</p></div>';
+                    });
             });
+
+            // Disparar manualmente el evento para la pestaña activa desde localStorage
+            if (activeTab) document.getElementById('tab-' + activeTab)?.click();
         });
 
         // --- LÓGICA PRINCIPAL: APERTURA DE MESA ---

@@ -1,4 +1,4 @@
-from django.db import connection
+from django.db import connection, transaction
 
 # =====================================================================
 # BLOQUE 1: CONFIGURACIÓN GLOBAL Y LOGIN
@@ -269,6 +269,7 @@ def verificar_tiene_consumos(folio):
         cursor.execute("SELECT COUNT(*) FROM Consumos WHERE Folio = %s AND (sw IS NULL OR sw = '' OR sw = '0')", [folio])
         return cursor.fetchone()[0] > 0
 
+@transaction.atomic
 def generar_nuevo_folio():
     """Genera y reserva un nuevo número de folio único.
 
@@ -393,6 +394,7 @@ def obtener_detalles_cuenta(folio):
             'cuentas_activas': cuentas_activas
         }
 
+@transaction.atomic
 def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
     """Crea un nuevo registro de cuenta en la tabla `CtasMesas`.
 
@@ -488,6 +490,7 @@ def obtener_cuentas_folio(folio):
         cursor.execute("SELECT Cuentas FROM CtasMesas WHERE Folio = %s AND Status = '0' ORDER BY CAST(Cuentas AS INT)", [folio])
         return [str(fila[0]).strip() for fila in cursor.fetchall()]
 
+@transaction.atomic
 def crear_cuenta_extra(folio):
     """Crea una sub-cuenta adicional para una mesa ya abierta.
 
@@ -714,6 +717,7 @@ def obtener_consumos_mesa(folio):
             })
         return consumos
     
+@transaction.atomic
 def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta='1'):
     """Agrega un producto a la comanda (tabla Consumos) o actualiza su cantidad.
 
@@ -804,6 +808,7 @@ def borrar_producto_consumo(folio, producto, clase, grupo):
         """
         cursor.execute(sql, [folio, producto, clase, grupo])
 
+@transaction.atomic
 def comandar_ticket(folio):
     """Procesa el envío de productos a las áreas de preparación (cocina, bar, etc.).
 
