@@ -20,9 +20,10 @@ def obtener_nombre_local():
             cursor.execute("SELECT TOP 1 NCliente FROM ValoresPOS")
             fila = cursor.fetchone()
             if fila and fila[0]:
-                return fila[0].strip() # .strip() limpia espacios en blanco sobrantes
+                return fila[0].strip()
             return "Nombre del Local no configurado"
         except Exception:
+            # Si ocurre cualquier error, retorna un valor por defecto para no detener la app.
             return "Restaurante"
 
 def obtener_usuarios_activos():
