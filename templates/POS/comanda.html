@@ -149,12 +149,12 @@
                 </div>
                 <div class="row g-2">
                     <div class="col-6">
-                        <button class="btn btn-danger w-100 py-3 fw-bold fs-5" onclick="accionarCierre('regresar')">
+                        <button class="btn btn-danger w-100 py-3 fw-bold fs-5" onclick="accionarCierre()">
                             <i class="fa-solid fa-arrow-left me-2"></i>Regresar
                         </button>
                     </div>
                     <div class="col-6">
-                        <button class="btn btn-success w-100 py-3 fw-bold fs-5" onclick="accionarCierre('confirmar')">
+                        <button class="btn btn-success w-100 py-3 fw-bold fs-5" onclick="accionarCierre()">
                             <i class="fa-solid fa-check-double me-2"></i>Confirmar
                         </button>
                     </div>
@@ -714,19 +714,17 @@
             });
         }
 
-        function accionarCierre(accion) {
-            if (accion === 'confirmar') {
-                let itemsNuevos = comanda.filter(i => i.estado === 'nuevo');
-                if (itemsNuevos.length > 0) {
-                    fetch('/pos/api/ticket/comandar/', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                        body: JSON.stringify({folio: '{{ folio }}'})
-                    }).then(() => window.location.href = "{% url 'seleccion_mesas' %}");
-                } else {
-                    window.location.href = "{% url 'seleccion_mesas' %}";
-                }
+        function accionarCierre() {
+            // Tanto 'Confirmar' como 'Regresar' ahora comandan los productos nuevos antes de salir.
+            let itemsNuevos = comanda.filter(i => i.estado === 'nuevo');
+            if (itemsNuevos.length > 0) {
+                fetch('/pos/api/ticket/comandar/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify({folio: '{{ folio }}'})
+                }).then(() => window.location.href = "{% url 'seleccion_mesas' %}");
             } else {
+                // Si no hay nada nuevo, simplemente regresa a la pantalla de mesas.
                 window.location.href = "{% url 'seleccion_mesas' %}";
             }
         }
