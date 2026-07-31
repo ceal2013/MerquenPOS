@@ -28,8 +28,8 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change
 # Cargar desde una variable de entorno. Por defecto es False para seguridad.
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Agrega aquí tu dominio de producción, ej: 'merquenpos.midominio.com'
-
+#ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Agrega aquí tu dominio de producción, ej: 'merquenpos.midominio.com'
+ALLOWED_HOSTS = ['*']  # Permitir todos los hosts para desarrollo. Cambiar en producción.
 
 # Application definition
 
