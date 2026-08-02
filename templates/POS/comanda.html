@@ -507,13 +507,18 @@
                 totalCuentaActiva += (item.precio * item.cantidad);
                 let subtotalLinea = item.precio * item.cantidad;
 
+                const esOpcionMenu = item.nota && item.nota.startsWith('>');
+
                 // REGLA DE NEGOCIO: El ícono de Mover solo aparece si hay más de 1 cuenta activa 
                 // Y el producto ya fue comandado (estado === 'guardado').
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado') 
                     ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
                 let iconosHtml = '';
-                if (item.estado === 'guardado') {
+                if (esOpcionMenu) {
+                    // Las opciones de menú no tienen acciones individuales.
+                    iconosHtml = '';
+                } else if (item.estado === 'guardado') {
                     // Producto ya enviado a cocina: Mostramos la Impresora y el botón Mover.
                     iconosHtml = `<span class="text-success fs-5"><i class="fa-solid fa-print"></i></span>${btnMover}`;
                 } else {
@@ -522,8 +527,6 @@
                        <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})"><i class="fa-solid fa-pencil"></i></button>
                        <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
                 }
-
-                let notaHtml = item.nota ? `<br><small class="text-warning fw-bold"><i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i>${item.nota}</small>` : '';
 
                 // --- PATRÓN SEGURO ANTI-XSS ---
                 const tr = document.createElement('tr');
@@ -534,25 +537,33 @@
 
                 const tdProd = document.createElement('td');
                 tdProd.textContent = item.nombre; // textContent neutraliza HTML y previene XSS
-                if (item.nota) {
-                    const br = document.createElement('br');
-                    const small = document.createElement('small');
-                    small.className = 'text-warning fw-bold';
-                    // El ícono es seguro, pero la nota del usuario no.
-                    small.innerHTML = '<i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i> ';
-                    // Usamos appendChild con un nodo de texto para la nota, que es seguro.
-                    small.appendChild(document.createTextNode(item.nota));
-                    tdProd.appendChild(br);
-                    tdProd.appendChild(small);
-                }
 
                 const tdPrecio = document.createElement('td');
                 tdPrecio.className = 'text-end';
                 tdPrecio.textContent = `$${subtotalLinea.toFixed(0)}`;
 
+                // Aplicar estilos y contenido específico para opciones de menú
+                if (esOpcionMenu) {
+                    tr.style.borderTop = '2px dashed #e9ecef'; // Separador visual
+                    tdProd.innerHTML = `<span class="ms-3 text-muted"><i class="fa-solid fa-level-up-alt fa-rotate-90 me-2"></i></span>`;
+                    tdProd.querySelector('span').appendChild(document.createTextNode(item.nombre));
+                    tdCant.textContent = ''; // Ocultamos la cantidad para las opciones
+                    tdPrecio.textContent = ''; // Ocultamos el precio para las opciones
+                } 
+                // Aplicar estilos para notas de usuario (solo si no es opción de menú)
+                else if (item.nota) { 
+                    const br = document.createElement('br');
+                    const small = document.createElement('small');
+                    small.className = 'text-warning fw-bold';
+                    small.innerHTML = '<i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i> ';
+                    small.appendChild(document.createTextNode(item.nota));
+                    tdProd.appendChild(br);
+                    tdProd.appendChild(small);
+                }
+
                 const tdAcciones = document.createElement('td');
                 tdAcciones.className = 'text-center text-nowrap';
-                tdAcciones.innerHTML = iconosHtml; // Los iconos son HTML seguro generado por nosotros
+                tdAcciones.innerHTML = iconosHtml;
 
                 tr.append(tdCant, tdProd, tdPrecio, tdAcciones);
                 tbody.appendChild(tr);
