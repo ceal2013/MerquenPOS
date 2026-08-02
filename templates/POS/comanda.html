@@ -912,10 +912,16 @@
         }
 
         function enviarProductoABackend(item) {
+            // Preparamos el payload para el backend. La API espera la clave 'producto',
+            // pero nuestro objeto local 'item' usa 'codigo'. Hacemos el mapeo aquí.
+            const payload = { ...item };
+            payload.producto = payload.codigo;
+            delete payload.codigo;
+
             fetch('/pos/api/ticket/agregar/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                body: JSON.stringify({ ...item, folio: '{{ folio }}', punto: '{{ punto }}' })
+                body: JSON.stringify({ ...payload, folio: '{{ folio }}', punto: '{{ punto }}' })
             });
         }
 
