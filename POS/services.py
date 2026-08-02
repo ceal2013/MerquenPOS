@@ -711,11 +711,11 @@ def obtener_opciones_menu(clase, grupo, producto):
         # que puede ser un costo adicional sobre el precio del menú.
         sql = """
             SELECT 
-                m.Menu, m.oNombre, m.oFamilia, m.oSeccion, m.oCodigo, ISNULL(p.Valor, 0)
+                m.Menu, m.oNProducto, m.oClase, m.oGrupo, m.oProducto, ISNULL(p.Valor, 0)
             FROM Menus m
-            LEFT JOIN Productos p ON m.oFamilia = p.Clase AND m.oSeccion = p.Grupo AND m.oCodigo = p.Producto
+            LEFT JOIN Productos p ON m.oClase = p.Clase AND m.oGrupo = p.Grupo AND m.oProducto = p.Producto
             WHERE m.Familia = %s AND m.Seccion = %s AND m.Codigo = %s
-            ORDER BY m.Menu, m.oNombre
+            ORDER BY m.Menu, m.oNProducto
         """
         cursor.execute(sql, [clase, grupo, producto])
         
