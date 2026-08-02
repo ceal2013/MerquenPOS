@@ -172,6 +172,18 @@ def api_get_productos(request, punto, clase, grupo):
     productos = services.get_productos_grupo(punto, clase, grupo)
     return JsonResponse({'productos': productos})
 
+@custom_login_required
+def api_opciones_menu(request, clase, grupo, producto):
+    """Devuelve las opciones configuradas para un producto de tipo Menú."""
+    opciones = services.obtener_opciones_menu(clase, grupo, producto)
+    
+    if not opciones:
+        # Si no hay opciones, se devuelve un indicador para que el frontend lo sepa.
+        return JsonResponse({'sin_opciones': True, 'opciones': {}})
+        
+    return JsonResponse({'sin_opciones': False, 'opciones': opciones})
+
+
 
 # =====================================================================
 # 3. ENDPOINTS AJAX - ACCIONES DEL TICKET Y LA BD (POST)

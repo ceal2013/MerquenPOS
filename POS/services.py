@@ -673,6 +673,66 @@ def obtener_variedades_producto(clase, grupo, producto):
         # Limpiamos espacios en blanco extra que deja Visual Basic en los CHAR
         return [fila[0].strip() for fila in cursor.fetchall()]
 
+def obtener_opciones_menu(clase, grupo, producto):
+    """
+    Obtiene las opciones configuradas para un producto de tipo 'Menú'.
+
+    Consulta la tabla `Menus` filtrando por los identificadores del producto padre
+    (clase->familia, grupo->seccion, producto->codigo) y agrupa las opciones
+    por su categoría (campo 'menu').
+
+    Args:
+        clase (str): La clase del producto menú (corresponde a 'Familia' en Menus).
+        grupo (str): El grupo del producto menú (corresponde a 'Seccion' en Menus).
+        producto (str): El código del producto menú (corresponde a 'Codigo' en Menus).
+
+    Returns:
+        dict: Un diccionario donde las claves son las categorías del menú
+              (ej. 'Fondos') y los valores son listas de diccionarios,
+              cada uno representando un producto de opción. Retorna un
+              diccionario vacío si no se encuentran opciones.
+    """
+    categorias_menu = {
+        '0': 'Aperitivos',
+        '1': 'Entradas',
+        '2': 'Fondos',
+        '3': 'Bebidas',
+        '4': 'Postres',
+        '5': 'Bajativos'
+    }
+    
+    opciones_agrupadas = {}
+
+    with connection.cursor() as cursor:
+        # Se une con Productos para obtener el precio de la opción (Valor),
+        # que puede ser un costo adicional sobre el precio del menú.
+        sql = """
+            SELECT 
+                m.Menu, m.oNombre, m.oFamilia, m.oSeccion, m.oCodigo, ISNULL(p.Valor, 0)
+            FROM Menus m
+            LEFT JOIN Productos p ON m.oFamilia = p.Clase AND m.oSeccion = p.Grupo AND m.oCodigo = p.Producto
+            WHERE m.Familia = %s AND m.Seccion = %s AND m.Codigo = %s
+            ORDER BY m.Menu, m.oNombre
+        """
+        cursor.execute(sql, [clase, grupo, producto])
+        
+        for fila in cursor.fetchall():
+            categoria_id = str(fila[0]).strip()
+            categoria_nombre = categorias_menu.get(categoria_id, f'Categoría {categoria_id}')
+            
+            if categoria_nombre not in opciones_agrupadas:
+                opciones_agrupadas[categoria_nombre] = []
+            
+            opciones_agrupadas[categoria_nombre].append({
+                'nproducto': fila[1].strip(),
+                'clase': fila[2].strip(),
+                'grupo': fila[3].strip(),
+                'producto': fila[4].strip(),
+                'valor': float(fila[5])
+            })
+            
+    return opciones_agrupadas
+
 
 # =====================================================================
 # BLOQUE 5: GESTIÓN DE LA COMANDA (Consumos)
@@ -729,14 +789,15 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
     turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
 
     with connection.cursor() as cursor:
-        # IMPORTANTE: Ahora la Nota es parte del filtro para agrupar o separar productos
+        # IMPORTANTE: La Nota es parte del filtro para agrupar o separar productos.
+        # MEJORA: Se agrega el precio (Valor) al filtro para evitar agrupar incorrectamente productos con precios distintos.
         cursor.execute("""
             SELECT SubIndice FROM Consumos 
             WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s 
-              AND Cuenta = %s AND Nota = %s
+              AND Cuenta = %s AND Nota = %s AND Valor = %s
               AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
               AND (sw IS NULL OR sw = '' OR sw = '0')
-        """, [folio, producto, clase, grupo, cuenta, nota])
+        """, [folio, producto, clase, grupo, cuenta, nota, precio])
         fila = cursor.fetchone()
 
         if fila:

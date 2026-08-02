@@ -284,6 +284,44 @@
             </div>
         </div>
     </div>
+
+    <!-- ===================================================================== -->
+    <!-- MODAL PARA ARMAR MENÚ                                                 -->
+    <!-- ===================================================================== -->
+    <div class="modal fade" id="modalArmarMenu" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-labelledby="modalArmarMenuLabel">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 15px;">
+                <div class="modal-header bg-primary text-white" style="border-radius: 15px 15px 0 0;">
+                    <h5 class="modal-title fw-bold" id="modalArmarMenuLabel">
+                        Armando: <span id="nombre-menu-armable"></span>
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div class="alert alert-info d-flex align-items-center" role="alert">
+                        <i class="fa-solid fa-circle-info fa-2x me-3"></i>
+                        <div>
+                            Debe seleccionar <strong id="cantidad-menu-armable">1</strong> opción de cada categoría para continuar.
+                        </div>
+                    </div>
+
+                    <!-- Contenedor para las secciones del menú (Acordeón) -->
+                    <div class="accordion" id="accordion-opciones-menu">
+                        <!-- 
+                            Las secciones (Aperitivos, Fondos, etc.) se insertarán aquí con JavaScript.
+                            Cada sección será un item del acordeón con una lista de opciones (radio buttons).
+                        -->
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success fw-bold" id="btn-confirmar-menu-armable" disabled>
+                        <i class="fa-solid fa-check-circle me-2"></i>Confirmar Menú
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     
     {{ consumos_previos|json_script:"consumos-data" }}
     {{ cuentas_activas|json_script:"cuentas-data" }}
@@ -333,6 +371,7 @@
         let modalCubiertosObj;
         let modalMoverObj;
         let modalVariedadesObj;
+        let modalArmarMenuObj;
         let valorCubiertos = "";
 
         document.addEventListener("DOMContentLoaded", function() { 
@@ -340,6 +379,9 @@
             modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos'));
             modalMoverObj = new bootstrap.Modal(document.getElementById('modalMover'));
             modalVariedadesObj = new bootstrap.Modal(document.getElementById('modalVariedades'));
+            modalArmarMenuObj = new bootstrap.Modal(document.getElementById('modalArmarMenu'));
+
+            document.getElementById('btn-confirmar-menu-armable').addEventListener('click', confirmarMenuArmable);
             
             dibujarTabsCuentas(); 
             renderizarTicket(); 
@@ -367,10 +409,11 @@
                     let html = '';
                     data.productos.forEach(p => {
                         const nombreEscapado = p.nombre.replace(/'/g, "\\'");
+                        const esMenuBadge = p.es_menu ? `<span class="badge bg-primary mt-1">MENÚ</span>` : '';
                         html += `
                         <div class="col">
-                            <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${nombreEscapado}', ${p.precio}, '${clase}', '${grupo}')">
-                                <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span></div>
+                            <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${nombreEscapado}', ${p.precio}, '${clase}', '${grupo}', ${p.es_menu})">
+                                <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span>${esMenuBadge}</div>
                             </button>
                         </div>`;
                     });
@@ -555,36 +598,49 @@
 
         let productoPendiente = null;
 
-        function agregarAlTicket(codigo, nombre, precio, clase, grupo) {
+        // Variable para gestionar el estado del menú que se está armando en el modal
+        let menuArmablePendiente = null;
+
+        function agregarAlTicket(codigo, nombre, precio, clase, grupo, es_menu = false) {
             // 1. Rescatamos la cantidad multiplicadora
             let cantAUsar = multiplicadorActivo;
             multiplicadorActivo = 1;
             document.getElementById('txt-multiplicador').innerText = '1';
             document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
 
-            // 2. Guardamos el producto temporalmente
-            productoPendiente = { codigo, nombre, precio, clase, grupo, cantidad: cantAUsar };
+            // 2. Guardamos el producto temporalmente para usarlo después
+            productoPendiente = { codigo, nombre, precio, clase, grupo, cantidad: cantAUsar, es_menu };
 
-            // 3. Consultamos silenciosamente a Django si tiene variedades
+            // 3. Lógica de bifurcación: ¿Es un menú o un producto normal?
+            if (es_menu) {
+                fetch(`/pos/api/menu/opciones/${clase}/${grupo}/${codigo}/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.sin_opciones) {
+                        // Es un menú pero sin opciones configuradas, se trata como producto normal.
+                        consultarYProcesarVariedades();
+                    } else {
+                        // Tiene opciones, abrimos el modal para armar el menú.
+                        abrirModalArmarMenu(productoPendiente, data.opciones);
+                    }
+                });
+            } else {
+                // Es un producto normal, seguimos con la lógica de variedades.
+                consultarYProcesarVariedades();
+            }
+        }
+
+        function consultarYProcesarVariedades() {
+            if (!productoPendiente) return;
+            const { clase, grupo, codigo, nombre } = productoPendiente;
+
             fetch(`/pos/api/variedades/${clase}/${grupo}/${codigo}/`)
-            .then(res => res.json())
-            .then(data => {
+                .then(res => res.json())
+                .then(data => {
                 if (data.variedades && data.variedades.length > 0) {
-                    // TIENE VARIEDADES: Preparamos y abrimos el Modal
-                    document.getElementById('lbl-producto-variedad').innerText = nombre;
-                    let grid = document.getElementById('grid-variedades');
-                    grid.innerHTML = '';
-                    
-                    data.variedades.forEach(v => {
-                        grid.innerHTML += `<div class="col-6"><button class="btn btn-outline-primary w-100 py-3 fw-bold fs-6" onclick="confirmarVariedad('${v.replace(/'/g, "\\'")}')">${v}</button></div>`;
-                    });
-                    
-                    // Botón opcional por si quiere el producto sin variedad
-                    grid.innerHTML += `<div class="col-12 mt-3"><button class="btn btn-light w-100 py-3 fw-bold text-secondary" onclick="confirmarVariedad('')">Sin variedad predefinida</button></div>`;
-                    
-                    modalVariedadesObj.show();
+                    abrirModalVariedades(nombre, data.variedades);
                 } else {
-                    // NO TIENE VARIEDADES: Pasa directo a agregarse al carrito
+                    // No tiene variedades, pasa directo a agregarse al ticket.
                     procesarAgregadoTicket('');
                 }
             });
@@ -592,6 +648,19 @@
 
         function cancelarVariedad() {
             productoPendiente = null;
+        }
+
+        function abrirModalVariedades(nombreProducto, variedades) {
+            document.getElementById('lbl-producto-variedad').innerText = nombreProducto;
+            let grid = document.getElementById('grid-variedades');
+            grid.innerHTML = '';
+            
+            variedades.forEach(v => {
+                grid.innerHTML += `<div class="col-6"><button class="btn btn-outline-primary w-100 py-3 fw-bold fs-6" onclick="confirmarVariedad('${v.replace(/'/g, "\\'")}')">${v}</button></div>`;
+            });
+            
+            grid.innerHTML += `<div class="col-12 mt-3"><button class="btn btn-light w-100 py-3 fw-bold text-secondary" onclick="confirmarVariedad('')">Sin variedad predefinida</button></div>`;
+            modalVariedadesObj.show();
         }
 
         function confirmarVariedad(variedad) {
@@ -710,6 +779,143 @@
                     document.getElementById('lbl-cubiertos').innerText = nuevaCantidad;
                     modalCubiertosObj.hide();
                 }
+            });
+        }
+
+        // --- LÓGICA PARA MENÚS ARMABLES ---
+
+        function abrirModalArmarMenu(menuPadre, opciones) {
+            // Guardamos el estado del menú que se está armando
+            menuArmablePendiente = {
+                productoPadre: menuPadre,
+                opcionesDisponibles: opciones,
+                selecciones: {} // Aquí guardaremos las selecciones por categoría
+            };
+
+            // Actualizamos el título y el contador del modal
+            document.getElementById('nombre-menu-armable').innerText = menuPadre.nombre;
+            document.getElementById('cantidad-menu-armable').innerText = menuPadre.cantidad;
+
+            const accordionContainer = document.getElementById('accordion-opciones-menu');
+            accordionContainer.innerHTML = ''; // Limpiamos el contenido anterior
+
+            const categorias = Object.keys(opciones);
+
+            categorias.forEach((categoria, index) => {
+                const categoriaId = categoria.replace(/\s+/g, '-'); // ID seguro para HTML
+                const opcionesCategoria = opciones[categoria];
+                
+                menuArmablePendiente.selecciones[categoria] = [];
+
+                let opcionesHtml = '<div class="list-group">';
+                opcionesCategoria.forEach(opcion => {
+                    opcionesHtml += `
+                        <label class="list-group-item">
+                            <input class="form-check-input me-2" type="checkbox"
+                                data-categoria="${categoria}"
+                                data-nombre="${opcion.nproducto}"
+                                data-precio="0"
+                                data-clase="${opcion.clase}"
+                                data-grupo="${opcion.grupo}"
+                                data-codigo="${opcion.producto}"
+                                onchange="actualizarSeleccionMenu(this)">
+                            ${opcion.nproducto}
+                        </label>
+                    `;
+                });
+                opcionesHtml += '</div>';
+
+                const accordionItemHtml = `
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading-${categoriaId}">
+                            <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${categoriaId}" aria-expanded="${index === 0}">
+                                <span class="fw-bold">${categoria}</span>
+                                <span class="badge bg-secondary ms-auto me-2" id="contador-cat-${categoriaId}">0 / ${menuPadre.cantidad}</span>
+                            </button>
+                        </h2>
+                        <div id="collapse-${categoriaId}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" data-bs-parent="#accordion-opciones-menu">
+                            <div class="accordion-body p-0">${opcionesHtml}</div>
+                        </div>
+                    </div>
+                `;
+                accordionContainer.innerHTML += accordionItemHtml;
+            });
+
+            document.getElementById('btn-confirmar-menu-armable').disabled = true;
+            modalArmarMenuObj.show();
+        }
+
+        function actualizarSeleccionMenu(checkbox) {
+            const categoria = checkbox.dataset.categoria;
+            const cantidadMaxima = menuArmablePendiente.productoPadre.cantidad;
+            const categoriaId = categoria.replace(/\s+/g, '-');
+            const contadorBadge = document.getElementById(`contador-cat-${categoriaId}`);
+            
+            if (checkbox.checked) {
+                menuArmablePendiente.selecciones[categoria].push(checkbox);
+            } else {
+                const index = menuArmablePendiente.selecciones[categoria].indexOf(checkbox);
+                if (index > -1) menuArmablePendiente.selecciones[categoria].splice(index, 1);
+            }
+
+            const cantidadSeleccionada = menuArmablePendiente.selecciones[categoria].length;
+            contadorBadge.innerText = `${cantidadSeleccionada} / ${cantidadMaxima}`;
+            
+            const checkboxesEnCategoria = document.querySelectorAll(`#collapse-${categoriaId} input[type="checkbox"]`);
+            if (cantidadSeleccionada >= cantidadMaxima) {
+                checkboxesEnCategoria.forEach(cb => { if (!cb.checked) cb.disabled = true; });
+                contadorBadge.classList.replace('bg-secondary', 'bg-success');
+            } else {
+                checkboxesEnCategoria.forEach(cb => { cb.disabled = false; });
+                contadorBadge.classList.replace('bg-success', 'bg-secondary');
+            }
+
+            validarSeleccionMenuCompleta();
+        }
+
+        function validarSeleccionMenuCompleta() {
+            const cantidadRequerida = menuArmablePendiente.productoPadre.cantidad;
+            const categorias = Object.keys(menuArmablePendiente.opcionesDisponibles);
+            
+            const todoCompleto = categorias.every(cat => menuArmablePendiente.selecciones[cat].length === cantidadRequerida);
+            document.getElementById('btn-confirmar-menu-armable').disabled = !todoCompleto;
+        }
+
+        function confirmarMenuArmable() {
+            if (!menuArmablePendiente) return;
+            const { productoPadre, selecciones } = menuArmablePendiente;
+
+            // 1. Agregar el producto PADRE (el menú) con su precio real
+            const itemPadre = { ...productoPadre, estado: 'nuevo', nota: '', cuenta: cuentaVisible };
+            comanda.push(itemPadre);
+            enviarProductoABackend(itemPadre);
+
+            // 2. Agregar los productos HIJOS (opciones) con precio CERO
+            for (const categoria in selecciones) {
+                selecciones[categoria].forEach(checkbox => {
+                    const opcion = checkbox.dataset;
+                    const itemHijo = {
+                        codigo: opcion.codigo, nombre: opcion.nombre, precio: 0, cantidad: 1,
+                        clase: opcion.clase, grupo: opcion.grupo, estado: 'nuevo',
+                        nota: `> ${productoPadre.nombre.toUpperCase()}`,
+                        cuenta: cuentaVisible
+                    };
+                    comanda.push(itemHijo);
+                    enviarProductoABackend(itemHijo);
+                });
+            }
+
+            modalArmarMenuObj.hide();
+            menuArmablePendiente = null;
+            productoPendiente = null;
+            renderizarTicket();
+        }
+
+        function enviarProductoABackend(item) {
+            fetch('/pos/api/ticket/agregar/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                body: JSON.stringify({ ...item, folio: '{{ folio }}', punto: '{{ punto }}' })
             });
         }
 
