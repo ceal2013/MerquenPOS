@@ -730,16 +730,48 @@
         }
 
         function borrarDelTicket(index) {
-            if (comanda[index].estado === 'nuevo') {
-                let item = comanda[index];
+            const itemSeleccionado = comanda[index];
+            if (itemSeleccionado.estado !== 'nuevo') {
+                return; // No se pueden borrar items ya comandados.
+            }
+
+            // Preparamos la lista de items que se van a borrar.
+            const itemsParaBorrar = [itemSeleccionado];
+            
+            // Si el item seleccionado NO es una opción de menú, podría ser un padre.
+            // Buscamos a sus hijos.
+            const esOpcionMenu = itemSeleccionado.nota && itemSeleccionado.nota.startsWith('>');
+            if (!esOpcionMenu) {
+                const notaHijoEsperada = `> ${itemSeleccionado.nombre.toUpperCase()}`;
+                const hijos = comanda.filter(item => 
+                    item.estado === 'nuevo' && 
+                    item.nota === notaHijoEsperada &&
+                    item.cuenta === itemSeleccionado.cuenta
+                );
+                itemsParaBorrar.push(...hijos);
+            }
+
+            // Enviamos las peticiones de borrado al backend.
+            itemsParaBorrar.forEach(item => {
                 fetch('/pos/api/ticket/borrar/', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                    body: JSON.stringify({ folio: '{{ folio }}', producto: item.codigo, clase: item.clase, grupo: item.grupo })
+                    body: JSON.stringify({
+                        folio: '{{ folio }}',
+                        producto: item.codigo,
+                        clase: item.clase,
+                        grupo: item.grupo,
+                        cuenta: item.cuenta,
+                        nota: item.nota
+                    })
                 });
-                comanda.splice(index, 1);
-                renderizarTicket();
-            }
+            });
+
+            // Actualizamos el array 'comanda' del frontend, eliminando los items.
+            const setParaBorrar = new Set(itemsParaBorrar);
+            comanda = comanda.filter(item => !setParaBorrar.has(item));
+
+            renderizarTicket();
         }
 
         function abrirNota(index) {

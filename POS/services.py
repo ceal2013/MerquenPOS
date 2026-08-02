@@ -836,17 +836,20 @@ def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, canti
             if subindice_generado:
                 cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", [subindice_generado, subindice_generado])
 
-def borrar_producto_consumo(folio, producto, clase, grupo):
+def borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota):
     """Elimina un producto de la comanda si aún no ha sido comandado.
 
     Borra un registro de la tabla `Consumos` que coincida con los parámetros
-    proporcionados, solo si su `Flag` es '0' o nulo (no comandado).
+    proporcionados (incluyendo cuenta y nota), solo si su `Flag` es '0'
+    o nulo (no comandado).
 
     Args:
         folio (str): Folio de la cuenta.
         producto (str): Código del producto a borrar.
         clase (str): Código de la familia del producto.
         grupo (str): Código del grupo del producto.
+        cuenta (str): La sub-cuenta a la que pertenece el producto.
+        nota (str): La nota asociada al producto (importante para diferenciar).
     """
     with connection.cursor() as cursor:
         sql = """
@@ -855,9 +858,11 @@ def borrar_producto_consumo(folio, producto, clase, grupo):
               AND Producto = %s 
               AND Clase = %s 
               AND Grupo = %s 
+              AND Cuenta = %s
+              AND Nota = %s
               AND (Flag = '0' OR Flag IS NULL OR Flag = '')
         """
-        cursor.execute(sql, [folio, producto, clase, grupo])
+        cursor.execute(sql, [folio, producto, clase, grupo, cuenta, nota])
 
 @transaction.atomic
 def comandar_ticket(folio):

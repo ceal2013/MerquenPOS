@@ -247,8 +247,10 @@ def api_borrar_ticket(request):
         producto = data.get('producto')
         clase = data.get('clase')
         grupo = data.get('grupo')
+        cuenta = data.get('cuenta', '1')
+        nota = data.get('nota', '')
         
-        services.borrar_producto_consumo(folio, producto, clase, grupo)
+        services.borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
 
