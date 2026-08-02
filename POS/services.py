@@ -659,7 +659,10 @@ def get_productos_grupo(punto, clase, grupo):
             ORDER BY p.NProducto
         """
         cursor.execute(sql, [punto, clase, grupo])
-        return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': f[3] == '1'} for f in cursor.fetchall()]
+        # MEJORA: Se usa str().strip() en el campo 'Menu' (f[3]) para asegurar la correcta
+        # detección del flag 'es_menu', incluso si la base de datos devuelve espacios
+        # adicionales (ej. en campos de tipo CHAR).
+        return [{'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 'es_menu': str(f[3]).strip() == '1'} for f in cursor.fetchall()]
 
 def obtener_variedades_producto(clase, grupo, producto):
     """Obtiene la lista de variedades predefinidas para un producto específico."""
