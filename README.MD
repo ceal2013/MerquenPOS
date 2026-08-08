@@ -41,15 +41,19 @@ Sigue estos pasos para levantar el proyecto en tu entorno local:
    git clone [https://github.com/tu-usuario/merquenpos.git](https://github.com/tu-usuario/merquenpos.git)
    cd merquenpos
 2.	Crear y activar el entorno virtual:
+bash
 python -m venv venv
 
 # En Windows (PowerShell / CMD):
+bash
 venv\Scripts\activate
 
 # En macOS / Linux:
+bash
 source venv/bin/activate
 
 3.	Instalar dependencias:
+bash
 pip install -r requirements.txt
 
 4.	Crear el archivo .env: Crea un archivo llamado exactamente .env en la raíz del proyecto (al mismo nivel que manage.py) basándote en la plantilla .env.example:
@@ -64,8 +68,10 @@ DB_PASSWORD=tu_password_sql
 DB_HOST=localhost\SQLEXPRESS
 
 5.	Iniciar el servidor de desarrollo:
+bash
 python manage.py runserver 0.0.0.0:8000
 El parámetro 0.0.0.0:8000 permite acceder a la aplicación desde tablets o teléfonos conectados a la misma red local.
+
 🌐 Pase a Producción (Instalación en Clientes)
 Cada vez que instales el sistema en un nuevo servidor de producción:
 1.	Modifica el archivo .env del servidor con los siguientes parámetros:
@@ -74,6 +80,7 @@ DJANGO_DEBUG=False
 DJANGO_ALLOWED_HOSTS=192.168.1.100,merquenpos.local
 2.	Generar una nueva clave secreta (DJANGO_SECRET_KEY): Ejecuta el siguiente comando en la terminal del servidor para obtener una clave única de 50 caracteres y pégala en el .env:
 python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
+
 🔒 Seguridad
 •	Jamás subas el archivo .env a GitHub.
 •	El archivo .gitignore debe incluir las entradas .env, *.log, __pycache__/ y la carpeta venv/.
