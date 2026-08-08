@@ -28,8 +28,13 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change
 # Cargar desde una variable de entorno. Por defecto es False para seguridad.
 DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
 
-#ALLOWED_HOSTS = ['localhost', '127.0.0.1']  # Agrega aquí tu dominio de producción, ej: 'merquenpos.midominio.com'
-ALLOWED_HOSTS = ['*']  # Permitir todos los hosts para desarrollo. Cambiar en producción.
+# En producción, carga los hosts permitidos desde una variable de entorno.
+# Ejemplo: DJANGO_ALLOWED_HOSTS="merquenpos.midominio.com,www.merquenpos.midominio.com"
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
+else:
+    allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS')
+    ALLOWED_HOSTS = allowed_hosts_env.split(',') if allowed_hosts_env else []
 
 # Application definition
 
@@ -79,12 +84,12 @@ WSGI_APPLICATION = 'MerquenPOS.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'mssql',
-        'NAME': 'MerquenDB',
-        'USER': 'sa',
-        'PASSWORD': 'H3redero',
-        'HOST': 'localhost\\SQLEXPRESS',
+        'NAME': os.environ.get('DB_NAME', 'MerquenDB'),
+        'USER': os.environ.get('DB_USER', 'sa'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'H3redero'),
+        'HOST': os.environ.get('DB_HOST', 'localhost\\SQLEXPRESS'),
         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server', 
+            'driver': 'ODBC Driver 17 for SQL Server',
         },
     }
 }
