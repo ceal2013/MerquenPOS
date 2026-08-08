@@ -1,72 +1,77 @@
-MerquenPOS 🍽️
+# MerquenPOS 🍽️
 
-Sistema de Punto de Venta (POS) diseñado para la gestión eficiente de restaurantes y hoteles. Desarrollado con Django y optimizado para pantallas táctiles (tablets/móviles), permite el control rápido de comandas, mesas y pedidos a cocina/bar.
+Sistema de Punto de Venta (POS) diseñado para la gestión eficiente de restaurantes y hoteles. Desarrollado con Django y optimizado para pantallas táctiles (tablets y celulares), permite el control rápido de comandas, mesas y pedidos dirigidos a distintas áreas de preparación (cocina, bar, cuarto frío, etc.).
 
-🚀 Características Principales
+---
 
-•	Control de Mesas: Gestión visual de mesas, sub-cuentas y cantidad de cubiertos.
+## 🚀 Características Principales
 
-•	Menús Configurables: Sistema dinámico para armar menús (ej. Menú Ejecutivo) con opciones separadas por categorías (Aperitivos, Entradas, Fondos, Bebidas, etc.) y selectores de cantidad táctiles.
+* **Control de Mesas y Sub-cuentas:** Gestión visual de mesas, manejo de sub-cuentas por mesa y modificación de cubiertos.
+* **Menús Configurables:** Confección dinámica de menús (ej. Menú Ejecutivo) divididos por agrupaciones (Aperitivos, Entradas, Fondos, Bebidas, Postres, Bajativos) con selectores de cantidad táctiles (+/-).
+* **Despacho Inteligente a Destino:** Enrutamiento de pedidos a sus impresoras/tablas de destino (`pcocina`, `pbar`, etc.), enviando el producto padre como cabecera junto a sus productos opciones.
+* **Gestión de Variedades y Notas:** Registro de puntos de cocción o adiciones personalizadas ("Sin mayonesa") por producto.
+* **Búsqueda Rápida e Interfaz Táctil:** Buscador predictivo en tiempo real por nombre de producto y diseño responsivo optimizado para garzones.
 
-•	Comandas a Destino: Enrutamiento inteligente de productos a distintas impresoras o áreas de preparación (Cocina, Bar, Cuarto Frío), incluyendo la agrupación automática de menús (productos padre/hijo).
+---
 
-•	Gestión de Variedades y Notas: Selección rápida de puntos de cocción o adiciones personalizadas ("Sin mayonesa").
+## 🛠️ Tecnologías Utilizadas
 
-•	Interfaz Táctil y Búsqueda: Frontend responsivo usando Bootstrap y JavaScript nativo, con buscador predictivo en tiempo real pensado para el ritmo rápido de los garzones.
+* **Backend:** Python 3.x, Django 5.x
+* **Base de Datos:** Microsoft SQL Server (vía `mssql-django` y ODBC Driver)
+* **Frontend:** HTML5, CSS3, JavaScript (Vanilla), Bootstrap 5, FontAwesome
+* **Seguridad:** `python-dotenv` para manejo seguro de variables de entorno
 
-🛠️ Tecnologías Usadas
+---
 
-•	Backend: Python 3.x, Django 5.x
+## ⚙️ Requisitos Previos
 
-•	Base de Datos: Microsoft SQL Server (vía mssql-django y ODBC Driver)
+Asegúrate de contar con lo siguiente en el equipo donde se ejecutará el sistema:
+1. **Python 3.10+**
+2. **Microsoft SQL Server** (Express o superior)
+3. **ODBC Driver 17 for SQL Server** (o superior)
 
-•	Frontend: HTML5, CSS3, JavaScript Vanilla, Bootstrap 5, FontAwesome.
+---
 
-⚙️ Requisitos Previos
+## 💻 Instalación y Configuración Local (Desarrollo)
 
-Antes de instalar, asegúrate de tener instalado en tu máquina:
+Sigue estos pasos para levantar el proyecto en tu entorno local:
 
-1.	Python 3.x
-2.	Microsoft SQL Server (Express o superior).
-3.	ODBC Driver 17 (o superior) for SQL Server.
-
-💻 Instalación y Configuración Local
-
-Sigue estos pasos para levantar el entorno de desarrollo:
-
-1.	Clonar el repositorio:
-Bash
-git clone https://github.com/tu-usuario/merquenpos.git
-cd merquenpos
-
+1. **Clonar el repositorio:**
+   ```bash
+   git clone [https://github.com/tu-usuario/merquenpos.git](https://github.com/tu-usuario/merquenpos.git)
+   cd merquenpos
 2.	Crear y activar el entorno virtual:
-Bash
 python -m venv venv
 
-# En Windows:
+# En Windows (PowerShell / CMD):
 venv\Scripts\activate
 
-# En macOS/Linux:
+# En macOS / Linux:
 source venv/bin/activate
-
 3.	Instalar dependencias:
-Bash
 pip install -r requirements.txt
-
-4.	Configurar Variables de Entorno: Crea un archivo llamado exactamente .env en la raíz del proyecto (al mismo nivel que manage.py) y agrega tus credenciales locales:
+4.	Crear el archivo .env: Crea un archivo llamado exactamente .env en la raíz del proyecto (al mismo nivel que manage.py) basándote en la plantilla .env.example:
 Fragmento de código
 DJANGO_DEBUG=True
 DJANGO_ALLOWED_HOSTS=*
-DJANGO_SECRET_KEY=clave-secreta-desarrollo-merquenpos
+DJANGO_SECRET_KEY=dev-key-local-merquenpos
+
 DB_NAME=MerquenDB
 DB_USER=sa
 DB_PASSWORD=tu_password_sql
 DB_HOST=localhost\SQLEXPRESS
-
-5.	Ejecutar el servidor de desarrollo:
-Bash
+5.	Iniciar el servidor de desarrollo:
 python manage.py runserver 0.0.0.0:8000
-Nota: Se levanta en 0.0.0.0:8000 para poder acceder al sistema desde las tablets o celulares conectados a la misma red local.
-
+El parámetro 0.0.0.0:8000 permite acceder a la aplicación desde tablets o teléfonos conectados a la misma red local.
+🌐 Pase a Producción (Instalación en Clientes)
+Cada vez que instales el sistema en un nuevo servidor de producción:
+1.	Modifica el archivo .env del servidor con los siguientes parámetros:
+Fragmento de código
+DJANGO_DEBUG=False
+DJANGO_ALLOWED_HOSTS=192.168.1.100,merquenpos.local
+2.	Generar una nueva clave secreta (DJANGO_SECRET_KEY): Ejecuta el siguiente comando en la terminal del servidor para obtener una clave única de 50 caracteres y pégala en el .env:
+python -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())"
 🔒 Seguridad
-Este proyecto utiliza python-dotenv para proteger las credenciales. Nunca subas el archivo .env al repositorio. Asegúrate de que .env esté siempre incluido en tu archivo .gitignore
+•	Jamás subas el archivo .env a GitHub.
+•	El archivo .gitignore debe incluir las entradas .env, *.log, __pycache__/ y la carpeta venv/.
+
