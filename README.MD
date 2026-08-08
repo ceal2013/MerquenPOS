@@ -41,8 +41,8 @@ Sigue estos pasos para levantar el proyecto en tu entorno local:
    git clone [https://github.com/tu-usuario/merquenpos.git](https://github.com/tu-usuario/merquenpos.git)
    cd merquenpos
 2.	Crear y activar el entorno virtual:
-bash
-python -m venv venv
+    ```bash
+    python -m venv venv
 
 # En Windows (PowerShell / CMD):
 bash
