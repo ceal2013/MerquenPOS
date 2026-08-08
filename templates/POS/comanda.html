@@ -836,42 +836,44 @@
         // --- LÓGICA PARA MENÚS ARMABLES ---
 
         function abrirModalArmarMenu(menuPadre, opciones) {
-            // Guardamos el estado del menú que se está armando
+            // 1. Guardar estado del menú que se está armando
             menuArmablePendiente = {
                 productoPadre: menuPadre,
                 opcionesDisponibles: opciones,
-                selecciones: {} // Aquí guardaremos las selecciones por categoría
+                selecciones: {} // { Categoria: { opcionId: cantidad, ... }, ... }
             };
 
-            // Actualizamos el título y el contador del modal
+            // 2. Actualizar UI del modal
             document.getElementById('nombre-menu-armable').innerText = menuPadre.nombre;
             document.getElementById('cantidad-menu-armable').innerText = menuPadre.cantidad;
 
             const accordionContainer = document.getElementById('accordion-opciones-menu');
-            accordionContainer.innerHTML = ''; // Limpiamos el contenido anterior
+            accordionContainer.innerHTML = ''; // Limpiar contenido anterior
 
             const categorias = Object.keys(opciones);
 
             categorias.forEach((categoria, index) => {
-                const categoriaId = categoria.replace(/\s+/g, '-'); // ID seguro para HTML
+                const categoriaId = categoria.replace(/\s+/g, '-');
                 const opcionesCategoria = opciones[categoria];
                 
-                menuArmablePendiente.selecciones[categoria] = [];
+                // Inicializar selecciones para esta categoría
+                menuArmablePendiente.selecciones[categoria] = {};
 
-                let opcionesHtml = '<div class="list-group">';
+                let opcionesHtml = '<div class="list-group list-group-flush">';
                 opcionesCategoria.forEach(opcion => {
+                    const opcionId = `${opcion.clase}-${opcion.grupo}-${opcion.producto}`;
+                    // Inicializar contador para esta opción
+                    menuArmablePendiente.selecciones[categoria][opcionId] = 0;
+
                     opcionesHtml += `
-                        <label class="list-group-item">
-                            <input class="form-check-input me-2" type="checkbox"
-                                data-categoria="${categoria}"
-                                data-nombre="${opcion.nproducto}"
-                                data-precio="0"
-                                data-clase="${opcion.clase}"
-                                data-grupo="${opcion.grupo}"
-                                data-codigo="${opcion.producto}"
-                                onchange="actualizarSeleccionMenu(this)">
-                            ${opcion.nproducto}
-                        </label>
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <span class="fw-semibold">${opcion.nproducto}</span>
+                            <div class="input-group" style="width: 130px;">
+                                <button class="btn btn-outline-danger fw-bold" type="button" onclick="restarOpcionMenu('${categoria}', '${opcionId}')">-</button>
+                                <span class="form-control text-center fw-bold bg-light" id="qty-span-${opcionId}">0</span>
+                                <button class="btn btn-outline-success fw-bold" type="button" onclick="sumarOpcionMenu('${categoria}', '${opcionId}')">+</button>
+                            </div>
+                        </div>
                     `;
                 });
                 opcionesHtml += '</div>';
@@ -896,31 +898,54 @@
             modalArmarMenuObj.show();
         }
 
-        function actualizarSeleccionMenu(checkbox) {
-            const categoria = checkbox.dataset.categoria;
+        function sumarOpcionMenu(categoria, opcionId) {
             const cantidadMaxima = menuArmablePendiente.productoPadre.cantidad;
+            const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
+            
+            // Calcular total actual de la categoría
+            const totalActual = Object.values(seleccionesCategoria).reduce((sum, val) => sum + val, 0);
+
+            if (totalActual < cantidadMaxima) {
+                seleccionesCategoria[opcionId]++;
+                actualizarUIOpcion(categoria, opcionId);
+            }
+        }
+
+        function restarOpcionMenu(categoria, opcionId) {
+            const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
+            if (seleccionesCategoria[opcionId] > 0) {
+                seleccionesCategoria[opcionId]--;
+                actualizarUIOpcion(categoria, opcionId);
+            }
+        }
+
+        function actualizarUIOpcion(categoria, opcionId) {
+            const cantidadMaxima = menuArmablePendiente.productoPadre.cantidad;
+            const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
+            const cantidadActualOpcion = seleccionesCategoria[opcionId];
+            
+            // 1. Actualizar el span de la cantidad de la opción
+            document.getElementById(`qty-span-${opcionId}`).innerText = cantidadActualOpcion;
+
+            // 2. Actualizar el contador de la categoría
+            const totalCategoria = Object.values(seleccionesCategoria).reduce((sum, val) => sum + val, 0);
             const categoriaId = categoria.replace(/\s+/g, '-');
             const contadorBadge = document.getElementById(`contador-cat-${categoriaId}`);
-            
-            if (checkbox.checked) {
-                menuArmablePendiente.selecciones[categoria].push(checkbox);
-            } else {
-                const index = menuArmablePendiente.selecciones[categoria].indexOf(checkbox);
-                if (index > -1) menuArmablePendiente.selecciones[categoria].splice(index, 1);
-            }
+            contadorBadge.innerText = `${totalCategoria} / ${cantidadMaxima}`;
 
-            const cantidadSeleccionada = menuArmablePendiente.selecciones[categoria].length;
-            contadorBadge.innerText = `${cantidadSeleccionada} / ${cantidadMaxima}`;
+            // 3. Habilitar/deshabilitar botones (+) y actualizar color del badge
+            const collapseContainer = document.getElementById(`collapse-${categoriaId}`);
+            const plusButtons = collapseContainer.querySelectorAll('button[onclick^="sumarOpcionMenu"]');
             
-            const checkboxesEnCategoria = document.querySelectorAll(`#collapse-${categoriaId} input[type="checkbox"]`);
-            if (cantidadSeleccionada >= cantidadMaxima) {
-                checkboxesEnCategoria.forEach(cb => { if (!cb.checked) cb.disabled = true; });
+            if (totalCategoria >= cantidadMaxima) {
+                plusButtons.forEach(btn => btn.disabled = true);
                 contadorBadge.classList.replace('bg-secondary', 'bg-success');
             } else {
-                checkboxesEnCategoria.forEach(cb => { cb.disabled = false; });
+                plusButtons.forEach(btn => btn.disabled = false);
                 contadorBadge.classList.replace('bg-success', 'bg-secondary');
             }
 
+            // 4. Validar si el menú completo está listo
             validarSeleccionMenuCompleta();
         }
 
@@ -928,59 +953,59 @@
             const cantidadRequerida = menuArmablePendiente.productoPadre.cantidad;
             const categorias = Object.keys(menuArmablePendiente.opcionesDisponibles);
             
-            const todoCompleto = categorias.every(cat => menuArmablePendiente.selecciones[cat].length === cantidadRequerida);
+            const todoCompleto = categorias.every(cat => {
+                const totalCategoria = Object.values(menuArmablePendiente.selecciones[cat]).reduce((sum, val) => sum + val, 0);
+                return totalCategoria === cantidadRequerida;
+            });
+            
             document.getElementById('btn-confirmar-menu-armable').disabled = !todoCompleto;
         }
 
         function confirmarMenuArmable() {
             if (!menuArmablePendiente) return;
-            const { productoPadre, selecciones } = menuArmablePendiente;
+            const { productoPadre, selecciones, opcionesDisponibles } = menuArmablePendiente;
         
-            // 1. Preparar el objeto del producto padre para el frontend y el backend
-            const frontendGroupId = Date.now(); // ID temporal para agrupar en el frontend
+            // 1. Preparar el objeto del producto padre
+            const frontendGroupId = Date.now();
             const itemPadre = {
                 ...productoPadre,
-                estado: 'nuevo',
-                nota: '',
-                cuenta: cuentaVisible,
-                es_hijo: false,
-                frontend_group_id: frontendGroupId
+                estado: 'nuevo', nota: '', cuenta: cuentaVisible,
+                es_hijo: false, frontend_group_id: frontendGroupId
             };
         
-            // 2. Preparar el array de opciones (hijos)
+            // 2. Preparar el array de opciones (hijos) con sus cantidades
             const opcionesHijas = [];
             for (const categoria in selecciones) {
-                selecciones[categoria].forEach(checkbox => {
-                    const opcionData = checkbox.dataset;
-                    const itemHijo = {
-                        codigo: opcionData.codigo, // Para el frontend
-                        nombre: opcionData.nombre,
-                        precio: 0, // Las opciones de menú tienen precio 0
-                        cantidad: 1, // Cada opción es cantidad 1
-                        clase: opcionData.clase,
-                        grupo: opcionData.grupo,
-                        estado: 'nuevo',
-                        nota: '', // La nota ahora es libre para el garzón
-                        cuenta: cuentaVisible,
-                        es_hijo: true,
-                        frontend_group_id: frontendGroupId
-                    };
-                    opcionesHijas.push(itemHijo);
-                });
+                for (const opcionId in selecciones[categoria]) {
+                    const cantidadSeleccionada = selecciones[categoria][opcionId];
+
+                    if (cantidadSeleccionada > 0) {
+                        const opcionDataOriginal = opcionesDisponibles[categoria].find(opt => 
+                            `${opt.clase}-${opt.grupo}-${opt.producto}` === opcionId
+                        );
+
+                        if (opcionDataOriginal) {
+                            opcionesHijas.push({
+                                codigo: opcionDataOriginal.producto,
+                                nombre: opcionDataOriginal.nproducto,
+                                precio: 0, // Opciones de menú tienen precio 0
+                                cantidad: cantidadSeleccionada, // Usamos la cantidad seleccionada
+                                clase: opcionDataOriginal.clase,
+                                grupo: opcionDataOriginal.grupo,
+                                estado: 'nuevo', nota: '', cuenta: cuentaVisible,
+                                es_hijo: true, frontend_group_id: frontendGroupId
+                            });
+                        }
+                    }
+                }
             }
         
-            // 3. Preparar el payload para el backend en el formato esperado
+            // 3. Preparar el payload para el backend
             const payload = {
-                folio: '{{ folio }}',
-                punto: '{{ punto }}',
-                cuenta: cuentaVisible,
+                folio: '{{ folio }}', punto: '{{ punto }}', cuenta: cuentaVisible,
                 producto_padre: {
-                    producto: itemPadre.codigo,
-                    clase: itemPadre.clase,
-                    grupo: itemPadre.grupo,
-                    precio: itemPadre.precio,
-                    cantidad: itemPadre.cantidad,
-                    nota: itemPadre.nota
+                    producto: itemPadre.codigo, clase: itemPadre.clase, grupo: itemPadre.grupo,
+                    precio: itemPadre.precio, cantidad: itemPadre.cantidad, nota: itemPadre.nota
                 },
                 opciones: opcionesHijas.map(h => ({
                     producto: h.codigo, clase: h.clase, grupo: h.grupo,
@@ -995,7 +1020,7 @@
                 body: JSON.stringify(payload)
             });
         
-            // 5. Agregar el padre y los hijos al array local 'comanda' para renderizar inmediatamente
+            // 5. Agregar el padre y los hijos al array local 'comanda'
             comanda.push(itemPadre, ...opcionesHijas);
         
             // 6. Limpiar y renderizar
