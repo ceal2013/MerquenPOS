@@ -979,10 +979,23 @@ def mover_producto_cuenta(folio, producto, clase, grupo, cuenta_origen, cuenta_d
         cuenta_origen (str): La sub-cuenta de origen del producto.
         cuenta_destino (str): La sub-cuenta de destino del producto.
     """
-    with connection.cursor() as cursor:
-        cursor.execute("""
-            UPDATE Consumos 
-            SET Cuenta = %s 
-            WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s AND Cuenta = %s 
-              AND (sw IS NULL OR sw = '' OR sw = '0')
-        """, [cuenta_destino, folio, producto, clase, grupo, cuenta_origen])
+    with transaction.atomic(): # Asegura que ambas actualizaciones se realicen o ninguna.
+        with connection.cursor() as cursor:
+            # 1. Mover el producto principal (el que se seleccionó para mover, sea padre o individual)
+            cursor.execute("""
+                UPDATE Consumos 
+                SET Cuenta = %s 
+                WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s AND Cuenta = %s 
+                  AND (sw IS NULL OR sw = '' OR sw = '0')
+            """, [cuenta_destino, folio, producto, clase, grupo, cuenta_origen])
+
+            # 2. Mover los productos hijos (opciones de menú) asociados a este padre, si existen.
+            # Los productos hijos tienen sus campos mClase, mGrupo, mCodigo apuntando al padre.
+            # Se busca por el folio, la cuenta de origen y los identificadores del padre.
+            cursor.execute("""
+                UPDATE Consumos 
+                SET Cuenta = %s 
+                WHERE Folio = %s AND Cuenta = %s 
+                  AND mClase = %s AND mGrupo = %s AND mCodigo = %s
+                  AND (sw IS NULL OR sw = '' OR sw = '0')
+            """, [cuenta_destino, folio, cuenta_origen, clase, grupo, producto])
