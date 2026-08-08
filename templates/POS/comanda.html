@@ -509,11 +509,11 @@
                 totalCuentaActiva += (item.precio * item.cantidad);
                 let subtotalLinea = item.precio * item.cantidad;
         
-                // REGLA DE NEGOCIO: El ícono de Mover solo aparece si hay más de 1 cuenta activa 
-                // Y el producto ya fue comandado (estado === 'guardado') y NO es un hijo.
+                // CORRECCIÓN 1: El botón de mover (btnMover) solo se muestra en productos padre
+                // ('!item.es_hijo') que ya han sido comandados ('estado === guardado').
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
                     ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
-        
+
                 let iconosHtml = '';
                 if (item.estado === 'guardado') {
                     // Si es un producto ya comandado y NO es un hijo, muestra el ícono de comandado y el botón de mover.
@@ -584,21 +584,31 @@
         }
 
         function confirmarMover(cuentaDestino) {
-            let index = document.getElementById('mover-item-index').value;
-            let item = comanda[index];
-            
+            const index = document.getElementById('mover-item-index').value;
+            const itemPadre = comanda[index];
+            const indiceGrupo = itemPadre.indice;
+
+            // CORRECCIÓN 2: Se envía solo el 'indice' del grupo. El backend se encarga
+            // de mover todos los productos (padre e hijos) que compartan ese 'indice'.
             fetch('/pos/api/ticket/mover/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                 body: JSON.stringify({ 
                     folio: '{{ folio }}', 
-                    indice: item.indice, 
-                    cuenta_origen: item.cuenta, 
+                    indice: indiceGrupo, 
                     cuenta_destino: cuentaDestino 
                 })
             });
 
-            item.cuenta = cuentaDestino;
+            // Se actualiza la 'cuenta' de todos los productos del grupo en el frontend
+            // para que la vista se refresque correctamente.
+            comanda.forEach(item => {
+                if (item.indice === indiceGrupo) {
+                    item.cuenta = cuentaDestino;
+                }
+            });
+
+            // Se cierra el modal y se refresca el ticket.
             modalMoverObj.hide();
             renderizarTicket();
         }
@@ -728,33 +738,40 @@
         function borrarDelTicket(index) {
             const itemSeleccionado = comanda[index];
             if (itemSeleccionado.estado !== 'nuevo') {
-                return; // No se pueden borrar items ya comandados.
+                alert("No se pueden borrar productos que ya han sido comandados.");
+                return;
             }
 
-            // Preparamos la lista de items que se van a borrar.
-            const itemsParaBorrar = [itemSeleccionado];
-            
-            // Si el item a borrar es un padre de menú recién agregado (no es hijo y tiene un ID de grupo temporal),
-            // buscamos a sus hijos para borrarlos también.
-            if (!itemSeleccionado.es_hijo && itemSeleccionado.frontend_group_id) {
-                const hijos = comanda.filter(item => 
-                    item.frontend_group_id === itemSeleccionado.frontend_group_id && item.es_hijo
-                );
-                itemsParaBorrar.push(...hijos);
+            let itemsParaBorrar = [];
+
+            // CORRECCIÓN 3: Lógica para agrupar padre e hijos para el borrado.
+            if (!itemSeleccionado.es_hijo) {
+                // Es un producto padre (o un producto individual).
+                const idGrupo = itemSeleccionado.indice || itemSeleccionado.frontend_group_id;
+                if (idGrupo) {
+                    // Si tiene un 'indice' o 'frontend_group_id', es un menú. Se busca el grupo completo.
+                    itemsParaBorrar = comanda.filter(item => 
+                        (item.indice && item.indice === idGrupo) || 
+                        (item.frontend_group_id && item.frontend_group_id === idGrupo)
+                    );
+                } else {
+                    // Es un producto individual sin grupo. Solo se borra a sí mismo.
+                    itemsParaBorrar.push(itemSeleccionado);
+                }
+            } else {
+                // Es un producto hijo. No se permite borrar hijos individualmente.
+                alert("Las opciones de un menú no se pueden borrar individualmente. Debe borrar el menú completo.");
+                return;
             }
 
-            // Enviamos las peticiones de borrado al backend.
+            // Enviamos las peticiones de borrado al backend por cada item.
             itemsParaBorrar.forEach(item => {
-                fetch('/pos/api/ticket/borrar/', { // La API de borrado sigue funcionando por item individual
+                fetch('/pos/api/ticket/borrar/', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                     body: JSON.stringify({
-                        folio: '{{ folio }}',
-                        producto: item.codigo,
-                        clase: item.clase,
-                        grupo: item.grupo,
-                        cuenta: item.cuenta,
-                        nota: item.nota
+                        folio: '{{ folio }}', producto: item.codigo, clase: item.clase,
+                        grupo: item.grupo, cuenta: item.cuenta, nota: item.nota
                     })
                 });
             });
@@ -762,7 +779,6 @@
             // Actualizamos el array 'comanda' del frontend, eliminando los items.
             const setParaBorrar = new Set(itemsParaBorrar);
             comanda = comanda.filter(item => !setParaBorrar.has(item));
-
             renderizarTicket();
         }
 

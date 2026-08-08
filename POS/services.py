@@ -863,12 +863,12 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
                     Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
                     Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
                     Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
-                ) VALUES (
+                ) VALUES ( -- CORRECCIÓN: El campo 'Menu' se establece en '1' para los hijos.
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
                     %s, %s, %s, %s, %s, %s, %s,
-                    '0', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
-                )
+                    '1', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
+                ) -- Un producto hijo es parte de un menú, por lo que hereda esta propiedad.
             """
             for opcion in opciones:
                 cursor.execute(sql_insert_hijo, [
@@ -1017,13 +1017,15 @@ def mover_producto_cuenta(folio, indice, cuenta_origen, cuenta_destino):
     Args:
         folio (str): El folio de la mesa.
         indice (int): El Indice del grupo de productos a mover.
-        cuenta_origen (str): La sub-cuenta de origen del producto.
+        cuenta_origen (str): La sub-cuenta de origen del producto (no se usa en el SQL para mover en bloque).
         cuenta_destino (str): La sub-cuenta de destino del producto.
     """
     with connection.cursor() as cursor:
+        # CORRECCIÓN: Se elimina el filtro por 'cuenta_origen' para mover el bloque
+        # completo (padre e hijos) por 'Indice', sin importar en qué sub-cuenta estén.
         sql = """
             UPDATE Consumos 
             SET Cuenta = %s 
-            WHERE Folio = %s AND Indice = %s AND Cuenta = %s AND (sw IS NULL OR sw = '' OR sw = '0')
+            WHERE Folio = %s AND Indice = %s AND (sw IS NULL OR sw = '' OR sw = '0')
         """
-        cursor.execute(sql, [cuenta_destino, folio, indice, cuenta_origen])
+        cursor.execute(sql, [cuenta_destino, folio, indice])

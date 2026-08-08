@@ -200,20 +200,28 @@ def api_agregar_ticket(request):
             cuenta = data.get('cuenta', '1')
             usuario_id = request.session['usuario_activo']['id']
 
-            # La nueva estructura espera un producto padre y una lista opcional de opciones
             producto_padre = data.get('producto_padre')
             opciones = data.get('opciones', [])
 
+            # CORRECCIÓN: Se añade compatibilidad para el formato de producto individual.
+            # Si no se recibe la estructura de 'producto_padre', se asume el formato antiguo
+            # y se construye el diccionario esperado por el servicio.
             if not producto_padre:
-                return JsonResponse({'status': 'error', 'message': 'El campo "producto_padre" es requerido.'}, status=400)
+                if 'producto' in data and 'clase' in data and 'grupo' in data:
+                    producto_padre = {
+                        'producto': data.get('producto'),
+                        'clase': data.get('clase'),
+                        'grupo': data.get('grupo'),
+                        'precio': data.get('precio'),
+                        'cantidad': data.get('cantidad'),
+                        'nota': data.get('nota', '')
+                    }
+                else:
+                    return JsonResponse({'status': 'error', 'message': 'El formato de datos del producto es incorrecto.'}, status=400)
 
             services.agregar_producto_consumo(
-                folio=folio,
-                punto=punto,
-                cuenta=cuenta,
-                usuario_id=usuario_id,
-                producto_padre=producto_padre,
-                opciones=opciones
+                folio=folio, punto=punto, cuenta=cuenta, usuario_id=usuario_id,
+                producto_padre=producto_padre, opciones=opciones
             )
             return JsonResponse({'status': 'ok'})
         except Exception as e:
