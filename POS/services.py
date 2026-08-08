@@ -760,7 +760,7 @@ def obtener_consumos_mesa(folio):
         sql = """
             SELECT 
                 c.Producto, p.NProducto, c.Valor, c.Cantidad, 
-                c.Clase, c.Grupo, c.Nota, c.Cuenta, c.Flag
+                c.Clase, c.Grupo, c.Nota, c.Cuenta, c.Flag, c.Indice
             FROM Consumos c
             JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
             WHERE c.Folio = %s 
@@ -780,61 +780,106 @@ def obtener_consumos_mesa(folio):
                 'grupo': fila[5].strip(),
                 'nota': fila[6].strip() if fila[6] else '',
                 'cuenta': str(fila[7]).strip() if fila[7] else '1',
-                'flag': str(fila[8]).strip() if fila[8] else '0'
+                'flag': str(fila[8]).strip() if fila[8] else '0',
+                'indice': fila[9]
             })
         return consumos
     
 @transaction.atomic
-def agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta='1', nota=''):
-    """Inserta o actualiza un producto en Consumos. Ahora diferencia por la Nota (Variedad)."""
+def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, opciones=None):
+    """
+    Inserta un producto o un paquete de menú (padre + hijos) en Consumos.
+    - Para paquetes, inserta el padre, obtiene su SubIndice, y lo usa como Indice para los hijos.
+    - Para productos simples, busca si existe uno no comandado para agrupar, o inserta uno nuevo.
+    """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
 
+    # Desempaquetar datos del producto principal
+    clase_padre = producto_padre['clase']
+    grupo_padre = producto_padre['grupo']
+    producto_padre_cod = producto_padre['producto']
+    precio_padre = producto_padre['precio']
+    cantidad_padre = producto_padre['cantidad']
+    nota_padre = producto_padre.get('nota', '')
+    
+    opciones = opciones or []
+
     with connection.cursor() as cursor:
-        # IMPORTANTE: La Nota es parte del filtro para agrupar o separar productos.
-        # MEJORA: Se agrega el precio (Valor) al filtro para evitar agrupar incorrectamente productos con precios distintos.
-        cursor.execute("""
-            SELECT SubIndice FROM Consumos 
-            WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s 
-              AND Cuenta = %s AND Nota = %s AND Valor = %s
-              AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
-              AND (sw IS NULL OR sw = '' OR sw = '0')
-        """, [folio, producto, clase, grupo, cuenta, nota, precio])
-        fila = cursor.fetchone()
+        # CASO 1: Es un producto simple (sin opciones) y se puede agrupar.
+        if not opciones:
+            cursor.execute("""
+                SELECT SubIndice FROM Consumos 
+                WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s 
+                  AND Cuenta = %s AND Nota = %s AND Valor = %s
+                  AND (Flag = '0' OR Flag IS NULL OR Flag = '') 
+                  AND (sw IS NULL OR sw = '' OR sw = '0')
+            """, [folio, producto_padre_cod, clase_padre, grupo_padre, cuenta, nota_padre, precio_padre])
+            fila = cursor.fetchone()
 
-        if fila:
-            subindice = fila[0]
-            cursor.execute("UPDATE Consumos SET Cantidad = Cantidad + %s WHERE SubIndice = %s", [cantidad, subindice])
-        else:
-            cursor.execute("SELECT TOP 1 Mesa FROM CtasMesas WHERE Folio = %s", [folio])
-            fila_mesa = cursor.fetchone()
-            mesa = fila_mesa[0] if fila_mesa else ''
+            if fila:
+                subindice = fila[0]
+                cursor.execute("UPDATE Consumos SET Cantidad = Cantidad + %s WHERE SubIndice = %s", [cantidad_padre, subindice])
+                return # Fin de la operación
 
-            sql_insert = """
+        # CASO 2: Es un producto nuevo (simple o padre de menú). Se inserta.
+        cursor.execute("SELECT TOP 1 Mesa FROM CtasMesas WHERE Folio = %s", [folio])
+        mesa = cursor.fetchone()[0] if cursor.rowcount > 0 else ''
+
+        sql_insert_padre = """
+            INSERT INTO Consumos (
+                Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
+                Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
+                Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
+                Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
+            ) 
+            OUTPUT INSERTED.SubIndice
+            VALUES (
+                %s, %s, %s, %s, %s, %s, '', '', '',
+                '0', %s, %s, %s, %s, '', '0',
+                %s, %s, %s, %s, %s, 0, %s,
+                %s, CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
+            )
+        """
+        es_menu = '1' if opciones else '0'
+        
+        cursor.execute(sql_insert_padre, [
+            punto, mesa, grupo_padre, producto_padre_cod, cantidad_padre, precio_padre,
+            folio, fecha_proceso, turno_bd, clase_padre,
+            cuenta, usuario_id, clase_padre, grupo_padre, producto_padre_cod, precio_padre,
+            es_menu, nota_padre
+        ])
+        subindice_padre = cursor.fetchone()[0]
+
+        # Actualizar el Indice del padre para que sea igual a su SubIndice.
+        cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", [subindice_padre, subindice_padre])
+
+        # CASO 3: Si hay opciones (hijos), se insertan.
+        if opciones:
+            sql_insert_hijo = """
                 INSERT INTO Consumos (
                     Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
                     Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
                     Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
                     Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
-                ) 
-                OUTPUT INSERTED.SubIndice
-                VALUES (
+                ) VALUES (
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
-                    %s, %s, %s, %s, %s, 0, %s,
+                    %s, %s, %s, %s, %s, %s, %s,
                     '0', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
                 )
             """
-            cursor.execute(sql_insert, [
-                punto, mesa, grupo, producto, cantidad, precio,
-                folio, fecha_proceso, turno_bd, clase,
-                cuenta, usuario_id, clase, grupo, producto, precio, nota
-            ])
-            
-            subindice_generado = cursor.fetchone()[0]
-            if subindice_generado:
-                cursor.execute("UPDATE Consumos SET Indice = %s WHERE SubIndice = %s", [subindice_generado, subindice_generado])
+            for opcion in opciones:
+                cursor.execute(sql_insert_hijo, [
+                    punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'], opcion['precio'],
+                    folio, fecha_proceso, turno_bd, opcion['clase'],
+                    cuenta, usuario_id,
+                    clase_padre, grupo_padre, producto_padre_cod, # m-fields apuntan al padre
+                    subindice_padre, # Indice del hijo es el SubIndice del padre
+                    opcion['precio'],
+                    opcion.get('nota', '')
+                ])
 
 def borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota):
     """Elimina un producto de la comanda si aún no ha sido comandado.
@@ -964,38 +1009,21 @@ def comandar_ticket(folio):
         """
         cursor.execute(sql_update_flag, [folio])
 
-def mover_producto_cuenta(folio, producto, clase, grupo, cuenta_origen, cuenta_destino):
-    """Mueve un producto de una sub-cuenta a otra dentro de la misma mesa.
-
-    Actualiza el campo `Cuenta` de un registro en la tabla `Consumos`,
-    efectivamente moviendo el ítem de una sub-cuenta de origen a una de destino.
-    Funciona para ítems comandados y no comandados.
+def mover_producto_cuenta(folio, indice, cuenta_origen, cuenta_destino):
+    """
+    Mueve un producto padre y todos sus hijos (agrupados por Indice)
+    de una sub-cuenta a otra.
 
     Args:
         folio (str): El folio de la mesa.
-        producto (str): Código del producto a mover.
-        clase (str): Código de la familia del producto.
-        grupo (str): Código del grupo del producto.
+        indice (int): El Indice del grupo de productos a mover.
         cuenta_origen (str): La sub-cuenta de origen del producto.
         cuenta_destino (str): La sub-cuenta de destino del producto.
     """
-    with transaction.atomic(): # Asegura que ambas actualizaciones se realicen o ninguna.
-        with connection.cursor() as cursor:
-            # 1. Mover el producto principal (el que se seleccionó para mover, sea padre o individual)
-            cursor.execute("""
-                UPDATE Consumos 
-                SET Cuenta = %s 
-                WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s AND Cuenta = %s 
-                  AND (sw IS NULL OR sw = '' OR sw = '0')
-            """, [cuenta_destino, folio, producto, clase, grupo, cuenta_origen])
-
-            # 2. Mover los productos hijos (opciones de menú) asociados a este padre, si existen.
-            # Los productos hijos tienen sus campos mClase, mGrupo, mCodigo apuntando al padre.
-            # Se busca por el folio, la cuenta de origen y los identificadores del padre.
-            cursor.execute("""
-                UPDATE Consumos 
-                SET Cuenta = %s 
-                WHERE Folio = %s AND Cuenta = %s 
-                  AND mClase = %s AND mGrupo = %s AND mCodigo = %s
-                  AND (sw IS NULL OR sw = '' OR sw = '0')
-            """, [cuenta_destino, folio, cuenta_origen, clase, grupo, producto])
+    with connection.cursor() as cursor:
+        sql = """
+            UPDATE Consumos 
+            SET Cuenta = %s 
+            WHERE Folio = %s AND Indice = %s AND Cuenta = %s AND (sw IS NULL OR sw = '' OR sw = '0')
+        """
+        cursor.execute(sql, [cuenta_destino, folio, indice, cuenta_origen])

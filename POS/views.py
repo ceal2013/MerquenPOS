@@ -191,18 +191,30 @@ def api_opciones_menu(request, clase, grupo, producto):
 
 @custom_login_required
 def api_agregar_ticket(request):
-    """Agrega un producto, recibiendo la cuenta y opcionalmente la nota (variedad)."""
+    """Agrega un producto o un paquete de menú a la comanda."""
     if request.method == 'POST':
         try:
             data = json.loads(request.body)
-            folio, punto, clase, grupo = data.get('folio'), data.get('punto'), data.get('clase'), data.get('grupo')
-            producto, precio, cantidad = data.get('producto'), data.get('precio'), data.get('cantidad')
+            folio = data.get('folio')
+            punto = data.get('punto')
             cuenta = data.get('cuenta', '1')
-            nota = data.get('nota', '') # Recibimos la nota inicial
-            
             usuario_id = request.session['usuario_activo']['id']
-            
-            services.agregar_producto_consumo(folio, punto, clase, grupo, producto, precio, cantidad, usuario_id, cuenta, nota)
+
+            # La nueva estructura espera un producto padre y una lista opcional de opciones
+            producto_padre = data.get('producto_padre')
+            opciones = data.get('opciones', [])
+
+            if not producto_padre:
+                return JsonResponse({'status': 'error', 'message': 'El campo "producto_padre" es requerido.'}, status=400)
+
+            services.agregar_producto_consumo(
+                folio=folio,
+                punto=punto,
+                cuenta=cuenta,
+                usuario_id=usuario_id,
+                producto_padre=producto_padre,
+                opciones=opciones
+            )
             return JsonResponse({'status': 'ok'})
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
@@ -220,17 +232,15 @@ def api_crear_cuenta(request):
 
 @custom_login_required
 def api_mover_producto(request):
-    """Llama al servicio para actualizar el campo Cuenta en Consumos."""
+    """Llama al servicio para actualizar el campo Cuenta en Consumos usando el Indice."""
     if request.method == 'POST':
         data = json.loads(request.body)
         folio = data.get('folio')
-        producto = data.get('producto')
-        clase = data.get('clase')
-        grupo = data.get('grupo')
+        indice = data.get('indice')
         origen = data.get('cuenta_origen')
         destino = data.get('cuenta_destino')
         
-        services.mover_producto_cuenta(folio, producto, clase, grupo, origen, destino)
+        services.mover_producto_cuenta(folio, indice, origen, destino)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
 
