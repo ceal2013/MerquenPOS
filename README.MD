@@ -48,8 +48,10 @@ venv\Scripts\activate
 
 # En macOS / Linux:
 source venv/bin/activate
+
 3.	Instalar dependencias:
 pip install -r requirements.txt
+
 4.	Crear el archivo .env: Crea un archivo llamado exactamente .env en la raíz del proyecto (al mismo nivel que manage.py) basándote en la plantilla .env.example:
 Fragmento de código
 DJANGO_DEBUG=True
@@ -60,6 +62,7 @@ DB_NAME=MerquenDB
 DB_USER=sa
 DB_PASSWORD=tu_password_sql
 DB_HOST=localhost\SQLEXPRESS
+
 5.	Iniciar el servidor de desarrollo:
 python manage.py runserver 0.0.0.0:8000
 El parámetro 0.0.0.0:8000 permite acceder a la aplicación desde tablets o teléfonos conectados a la misma red local.
