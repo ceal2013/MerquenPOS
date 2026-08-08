@@ -949,7 +949,7 @@ def comandar_ticket(folio):
         sql_nuevos = """
             SELECT 
                 c.Indice, c.SubIndice, c.Cantidad, c.Folio, c.Nota,
-                p.NProducto, p.Menu, p.Despacho, p.Despacho2
+                p.NProducto, p.Despacho, p.Despacho2
             FROM Consumos c
             JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
             WHERE c.Folio = %s AND (c.Flag = '0' OR c.Flag IS NULL OR c.Flag = '')
@@ -969,7 +969,7 @@ def comandar_ticket(folio):
             productos_por_indice[indice].append({
                 'indice': row[0], 'subindice': row[1], 'cantidad': row[2],
                 'folio': row[3], 'nota': row[4] if row[4] else '', 'nombre': row[5],
-                'es_menu': row[6], 'despacho1_raw': row[7], 'despacho2_raw': row[8]
+                'despacho1_raw': row[6], 'despacho2_raw': row[7]
             })
 
         # PASO 3: Preparar los datos para la inserción masiva según la nueva lógica.
@@ -986,7 +986,8 @@ def comandar_ticket(folio):
                 if desp1 in destinos_impresion: tablas_a_insertar.add(destinos_impresion[desp1])
                 if desp2 in destinos_impresion: tablas_a_insertar.add(destinos_impresion[desp2])
                 
-                datos_fila = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], producto['es_menu'], producto['nota'])
+                # Para productos individuales, el campo 'menu' en la comanda de preparación es '0'.
+                datos_fila = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], '0', producto['nota'])
                 for tabla in tablas_a_insertar:
                     datos_para_impresion[tabla].append(datos_fila)
             
@@ -1007,7 +1008,8 @@ def comandar_ticket(folio):
 
                 # 2.2. Despachar al padre a TODOS los destinos del grupo.
                 if padre:
-                    datos_fila_padre = (padre['indice'], padre['subindice'], padre['nombre'], padre['cantidad'], padre['folio'], padre['es_menu'], padre['nota'])
+                    # Para el padre de un menú, el campo 'menu' en la comanda de preparación es '1'.
+                    datos_fila_padre = (padre['indice'], padre['subindice'], padre['nombre'], padre['cantidad'], padre['folio'], '1', padre['nota'])
                     for tabla in destinos_del_grupo:
                         datos_para_impresion[tabla].append(datos_fila_padre)
 
@@ -1021,7 +1023,8 @@ def comandar_ticket(folio):
                         if desp1 in destinos_impresion: tablas_hijo.add(destinos_impresion[desp1])
                         if desp2 in destinos_impresion: tablas_hijo.add(destinos_impresion[desp2])
                         
-                        datos_fila_hijo = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], producto['es_menu'], producto['nota'])
+                        # Para los hijos de un menú, el campo 'menu' también es '1'.
+                        datos_fila_hijo = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], '1', producto['nota'])
                         for tabla in tablas_hijo:
                             datos_para_impresion[tabla].append(datos_fila_hijo)
 
