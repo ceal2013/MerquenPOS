@@ -26,7 +26,7 @@ SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change
 
 # SECURITY WARNING: don't run with debug turned on in production!
 # Cargar desde una variable de entorno. Por defecto es False para seguridad.
-DEBUG = os.environ.get('DJANGO_DEBUG', '') != 'False'
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
 # En producción, carga los hosts permitidos desde una variable de entorno.
 # Ejemplo: DJANGO_ALLOWED_HOSTS="merquenpos.midominio.com,www.merquenpos.midominio.com"
@@ -85,8 +85,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'mssql',
         'NAME': os.environ.get('DB_NAME', 'MerquenDB'),
-        'USER': os.environ.get('DB_USER', 'sa'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'H3redero'),
+        'USER': os.environ.get('DB_USER', 'usuario_dev'),
+        'PASSWORD': os.environ.get('DB_PASSWORD', 'pass_dev_123'),
         'HOST': os.environ.get('DB_HOST', 'localhost\\SQLEXPRESS'),
         'OPTIONS': {
             'driver': 'ODBC Driver 17 for SQL Server',
