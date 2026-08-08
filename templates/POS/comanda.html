@@ -163,16 +163,22 @@
 
         <div class="panel-menu">
             <div class="menu-header">
-                <div class="d-flex align-items-center h-100 gap-2">
+                <div class="d-flex align-items-center h-100 gap-2 flex-grow-1">
                     <button id="btn-volver-catalogo" class="btn btn-volver d-none fw-bold px-3" onclick="subirNivel()">
                         <i class="fa-solid fa-reply"></i>
                     </button>
                     
-                    <button id="btn-multiplicador" class="btn btn-outline-secondary fw-bold px-3" onclick="pedirMultiplicador()" title="Multiplicar Cantidad">
+                    <button id="btn-multiplicador" class="btn btn-outline-secondary fw-bold px-3 text-nowrap" onclick="pedirMultiplicador()" title="Multiplicar Cantidad">
                         <i class="fa-solid fa-xmark me-1"></i><span id="txt-multiplicador">1</span>
                     </button>
 
-                    <h5 class="mb-0 fw-bold text-secondary ms-2" id="lbl-ruta-menu">FAMILIAS</h5>
+                    <h5 class="mb-0 fw-bold text-secondary ms-2 text-nowrap" id="lbl-ruta-menu">FAMILIAS</h5>
+
+                    <div class="input-group ms-4 w-100" style="max-width: 450px;">
+                        <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" class="form-control" id="input-buscar-producto" placeholder="Buscar producto por nombre...">
+                        <button class="btn btn-outline-secondary" type="button" id="btn-limpiar-busqueda" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
                 </div>
                 <div class="text-end text-muted d-none d-md-block" style="font-size: 0.9rem;">
                     <span class="me-3"><i class="fa-regular fa-clock"></i> {{ turno_activo }}</span>
@@ -374,6 +380,7 @@
         let modalMoverObj;
         let modalVariedadesObj;
         let modalArmarMenuObj;
+        let searchTimeout;
         let valorCubiertos = "";
 
         document.addEventListener("DOMContentLoaded", function() { 
@@ -384,10 +391,69 @@
             modalArmarMenuObj = new bootstrap.Modal(document.getElementById('modalArmarMenu'));
 
             document.getElementById('btn-confirmar-menu-armable').addEventListener('click', confirmarMenuArmable);
+
+            const searchInput = document.getElementById('input-buscar-producto');
+            const clearSearchBtn = document.getElementById('btn-limpiar-busqueda');
+            searchInput.addEventListener('input', handleSearchInput);
+            clearSearchBtn.addEventListener('click', resetSearchView);
             
             dibujarTabsCuentas(); 
             renderizarTicket(); 
         });
+
+        // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS ---
+
+        function handleSearchInput() {
+            clearTimeout(searchTimeout);
+            const searchTerm = this.value.trim();
+            const clearBtn = document.getElementById('btn-limpiar-busqueda');
+
+            clearBtn.style.display = searchTerm.length > 0 ? 'block' : 'none';
+
+            if (searchTerm.length >= 2) {
+                searchTimeout = setTimeout(() => {
+                    performSearch(searchTerm);
+                }, 300); // Retraso de 300ms (debounce)
+            } else {
+                // Si el texto se borra o es muy corto, volvemos a la vista de familias
+                if (document.getElementById('lbl-ruta-menu').innerText.startsWith('Resultados para:')) {
+                    cambiarNivel('familias', 'FAMILIAS');
+                }
+            }
+        }
+
+        function performSearch(term) {
+            const punto = '{{ punto }}';
+            fetch(`/pos/api/productos/buscar/?q=${encodeURIComponent(term)}&punto=${punto}`)
+                .then(res => res.json())
+                .then(data => {
+                    const gridProductos = document.getElementById('grid-productos');
+                    let html = '';
+                    if (data.productos && data.productos.length > 0) {
+                        data.productos.forEach(p => {
+                            const nombreEscapado = p.nombre.replace(/'/g, "\\'");
+                            const esMenuBadge = p.es_menu ? `<span class="badge bg-primary mt-1">MENÚ</span>` : '';
+                            html += `
+                            <div class="col">
+                                <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${nombreEscapado}', ${p.precio}, '${p.clase}', '${p.grupo}', ${p.es_menu})">
+                                    <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span>${esMenuBadge}</div>
+                                </button>
+                            </div>`;
+                        });
+                    } else {
+                        html = `<div class="col-12 text-center text-muted mt-5">No se encontraron productos para "${term}".</div>`;
+                    }
+                    gridProductos.innerHTML = html;
+                    cambiarNivel('productos', `Resultados para: "${term}"`);
+                });
+        }
+
+        function resetSearchView() {
+            const searchInput = document.getElementById('input-buscar-producto');
+            searchInput.value = '';
+            searchInput.dispatchEvent(new Event('input')); // Dispara el evento para limpiar la vista
+            searchInput.focus();
+        }
 
         function cargarGrupos(punto, clase, nombreFamilia) {
             claseActiva = clase; 
@@ -446,8 +512,17 @@
         }
 
         function subirNivel() {
-            if (nivelActual === 'productos') cambiarNivel('grupos', nombreFamiliaActiva);
-            else if (nivelActual === 'grupos') cambiarNivel('familias', 'FAMILIAS');
+            const rutaMenu = document.getElementById('lbl-ruta-menu').innerText;
+            if (nivelActual === 'productos') {
+                // Si estamos en una vista de búsqueda, "volver" limpia la búsqueda.
+                if (rutaMenu.startsWith('Resultados para:')) {
+                    resetSearchView();
+                } else { // Si no, es navegación normal del catálogo.
+                    cambiarNivel('grupos', nombreFamiliaActiva);
+                }
+            } else if (nivelActual === 'grupos') {
+                cambiarNivel('familias', 'FAMILIAS');
+            }
         }
 
         function pedirMultiplicador() {

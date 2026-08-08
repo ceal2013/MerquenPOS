@@ -183,7 +183,20 @@ def api_opciones_menu(request, clase, grupo, producto):
         
     return JsonResponse({'sin_opciones': False, 'opciones': opciones})
 
+@custom_login_required
+def api_buscar_productos(request):
+    """
+    Busca productos por nombre y devuelve una lista en formato JSON.
+    Recibe los parámetros 'q' (término de búsqueda) y 'punto' (punto de venta).
+    """
+    termino = request.GET.get('q', '')
+    punto = request.GET.get('punto', '')
 
+    if not termino or not punto:
+        return JsonResponse({'productos': []})
+
+    productos = services.buscar_productos_por_nombre(punto, termino)
+    return JsonResponse({'productos': productos})
 
 # =====================================================================
 # 3. ENDPOINTS AJAX - ACCIONES DEL TICKET Y LA BD (POST)

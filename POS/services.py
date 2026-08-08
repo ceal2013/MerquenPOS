@@ -736,6 +736,47 @@ def obtener_opciones_menu(clase, grupo, producto):
             
     return opciones_agrupadas
 
+def buscar_productos_por_nombre(punto, termino):
+    """
+    Busca productos por nombre en todo el catálogo disponible para un punto de venta.
+
+    Consulta la tabla `Productos` y la une con `Tarifas` para obtener el
+    precio correcto. La búsqueda es case-insensitive y se limita a 20 resultados
+    para un rendimiento óptimo en la interfaz.
+
+    Args:
+        punto (str): El código del punto de venta para buscar tarifas.
+        termino (str): El texto a buscar dentro del nombre del producto.
+
+    Returns:
+        list[dict]: Una lista de diccionarios, cada uno representando un
+                    producto con 'codigo', 'nombre', 'precio', 'es_menu', 'clase', 'grupo'.
+    """
+    with connection.cursor() as cursor:
+        # Usamos TOP 20 para limitar los resultados y mantener la respuesta rápida.
+        # El JOIN con GrupoPuntos asegura que solo se muestren productos habilitados
+        # para el punto de venta actual.
+        sql = """
+            SELECT TOP 20
+                p.Producto, p.NProducto, ISNULL(t.Valor, p.Valor) AS PrecioUnitario, 
+                p.Menu, p.Clase, p.Grupo
+            FROM Productos p
+            JOIN GrupoPuntos gp ON p.Clase = gp.Clase AND p.Grupo = gp.Grupo
+            LEFT JOIN Tarifas t 
+                ON p.Producto = t.Codigo AND p.Clase = t.Clase AND p.Grupo = t.Grupo AND t.Punto = %s
+            WHERE gp.Punto = %s
+              AND p.NProducto LIKE %s
+              AND p.Baja <> 'S'
+            ORDER BY p.NProducto
+        """
+        termino_busqueda = f"%{termino}%"
+        cursor.execute(sql, [punto, punto, termino_busqueda])
+        
+        return [{
+            'codigo': f[0], 'nombre': f[1].strip(), 'precio': float(f[2]), 
+            'es_menu': str(f[3]).strip() == '1', 'clase': f[4].strip(), 'grupo': f[5].strip()
+        } for f in cursor.fetchall()]
+
 
 # =====================================================================
 # BLOQUE 5: GESTIÓN DE LA COMANDA (Consumos)
