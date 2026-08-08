@@ -912,6 +912,7 @@ def borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota):
 @transaction.atomic
 def comandar_ticket(folio):
     """Procesa el envío de productos a las áreas de preparación (cocina, bar, etc.).
+    Modificado para manejar la lógica de despacho de menús y sus opciones.
 
     1. Selecciona todos los productos de un folio que no han sido comandados (`Flag='0'`).
     2. Para cada producto, determina las áreas de despacho (ej. 'PCocina', 'PBar')
@@ -924,6 +925,8 @@ def comandar_ticket(folio):
     Args:
         folio (str): El folio de la cuenta a comandar.
     """
+    from collections import defaultdict
+
     # Diccionario de destinos: Mapea el número de Despacho con la tabla real
     destinos_impresion = {
         1: 'PCocina',
@@ -952,45 +955,77 @@ def comandar_ticket(folio):
             WHERE c.Folio = %s AND (c.Flag = '0' OR c.Flag IS NULL OR c.Flag = '')
         """
         cursor.execute(sql_nuevos, [folio])
-        productos_a_despachar = cursor.fetchall()
+        productos_a_despachar_tuples = cursor.fetchall()
 
         # Cláusula de guarda: Si no hay productos nuevos para comandar,
         # no se hace nada y la función termina para evitar transacciones vacías.
-        if not productos_a_despachar:
+        if not productos_a_despachar_tuples:
             return
 
-        # PASO 2: Agrupar los productos por área de impresión para inserción masiva.
-        # Esto es más eficiente que hacer un INSERT por cada producto.
+        # PASO 2: Agrupar productos por 'Indice' para manejar menús y productos individuales.
+        productos_por_indice = defaultdict(list)
+        for row in productos_a_despachar_tuples:
+            indice = row[0]
+            productos_por_indice[indice].append({
+                'indice': row[0], 'subindice': row[1], 'cantidad': row[2],
+                'folio': row[3], 'nota': row[4] if row[4] else '', 'nombre': row[5],
+                'es_menu': row[6], 'despacho1_raw': row[7], 'despacho2_raw': row[8]
+            })
+
+        # PASO 3: Preparar los datos para la inserción masiva según la nueva lógica.
         datos_para_impresion = {tabla: [] for tabla in destinos_impresion.values()}
 
-        for prod in productos_a_despachar:
-            # Desempaquetamos los datos para mayor claridad
-            (indice, subindice, cantidad, folio_consumo, nota, 
-             nombre_producto, es_menu, despacho1_raw, despacho2_raw) = prod
+        for indice, grupo_productos in productos_por_indice.items():
+            # CASO 1: Es un producto individual (no es un menú).
+            if len(grupo_productos) == 1:
+                producto = grupo_productos[0]
+                desp1 = parse_despacho(producto['despacho1_raw'])
+                desp2 = parse_despacho(producto['despacho2_raw'])
+                
+                tablas_a_insertar = set()
+                if desp1 in destinos_impresion: tablas_a_insertar.add(destinos_impresion[desp1])
+                if desp2 in destinos_impresion: tablas_a_insertar.add(destinos_impresion[desp2])
+                
+                datos_fila = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], producto['es_menu'], producto['nota'])
+                for tabla in tablas_a_insertar:
+                    datos_para_impresion[tabla].append(datos_fila)
             
-            nota_limpia = nota if nota else ''
-            desp1 = parse_despacho(despacho1_raw)
-            desp2 = parse_despacho(despacho2_raw)
+            # CASO 2: Es un menú con hijos.
+            else:
+                padre = None
+                destinos_del_grupo = set()
 
-            # Usamos un 'Set' (conjunto) para evitar que si desp1 y desp2 son iguales, 
-            # se imprima dos veces en la misma zona.
-            tablas_a_insertar = set()
-            if desp1 in destinos_impresion:
-                tablas_a_insertar.add(destinos_impresion[desp1])
-            if desp2 in destinos_impresion:
-                tablas_a_insertar.add(destinos_impresion[desp2])
-            
-            # Preparamos la tupla de datos para la inserción
-            datos_fila = (
-                indice, subindice, nombre_producto, cantidad, 
-                folio_consumo, es_menu, nota_limpia
-            )
+                # 2.1. Identificar al padre y recolectar todos los destinos del grupo.
+                for producto in grupo_productos:
+                    if producto['indice'] == producto['subindice']:
+                        padre = producto
+                    
+                    desp1 = parse_despacho(producto['despacho1_raw'])
+                    desp2 = parse_despacho(producto['despacho2_raw'])
+                    if desp1 in destinos_impresion: destinos_del_grupo.add(destinos_impresion[desp1])
+                    if desp2 in destinos_impresion: destinos_del_grupo.add(destinos_impresion[desp2])
 
-            # Agregamos los datos a la lista correspondiente de cada área de impresión
-            for nombre_tabla in tablas_a_insertar:
-                datos_para_impresion[nombre_tabla].append(datos_fila)
+                # 2.2. Despachar al padre a TODOS los destinos del grupo.
+                if padre:
+                    datos_fila_padre = (padre['indice'], padre['subindice'], padre['nombre'], padre['cantidad'], padre['folio'], padre['es_menu'], padre['nota'])
+                    for tabla in destinos_del_grupo:
+                        datos_para_impresion[tabla].append(datos_fila_padre)
 
-        # PASO 3: Ejecutar las inserciones masivas (bulk inserts) por cada área.
+                # 2.3. Despachar a los hijos SOLO a sus destinos específicos.
+                for producto in grupo_productos:
+                    if producto['indice'] != producto['subindice']: # Es un hijo
+                        desp1 = parse_despacho(producto['despacho1_raw'])
+                        desp2 = parse_despacho(producto['despacho2_raw'])
+                        
+                        tablas_hijo = set()
+                        if desp1 in destinos_impresion: tablas_hijo.add(destinos_impresion[desp1])
+                        if desp2 in destinos_impresion: tablas_hijo.add(destinos_impresion[desp2])
+                        
+                        datos_fila_hijo = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], producto['es_menu'], producto['nota'])
+                        for tabla in tablas_hijo:
+                            datos_para_impresion[tabla].append(datos_fila_hijo)
+
+        # PASO 4: Ejecutar las inserciones masivas (bulk inserts) por cada área.
         for nombre_tabla, datos in datos_para_impresion.items():
             if datos: # Solo si hay algo que insertar en esta área
                 # El nombre de la tabla se inyecta de forma segura desde nuestro diccionario.
@@ -1001,7 +1036,7 @@ def comandar_ticket(folio):
                 """
                 cursor.executemany(sql_insert_despacho, datos)
 
-        # PASO 4: Marcar todos los productos como comandados.
+        # PASO 5: Marcar todos los productos como comandados.
         sql_update_flag = """
             UPDATE Consumos 
             SET Flag = '1' 
