@@ -1,4 +1,5 @@
 from django.db import connection, transaction
+from collections import defaultdict
 
 # =====================================================================
 # BLOQUE 1: CONFIGURACIÓN GLOBAL Y LOGIN
@@ -58,6 +59,7 @@ def verificar_login(nombre_usuario, password):
                      son correctas, o None si la validación falla.
     """
     with connection.cursor() as cursor:
+        # NOTA DE SEGURIDAD: Se comparan contraseñas en texto plano por requerimiento estricto de compatibilidad con el sistema POS de escritorio (Visual Basic).
         sql = """
             SELECT Id, Nombre, Cargo, Admin, Supervisor 
             FROM Usuarios 
@@ -84,8 +86,8 @@ def obtener_turno_activo():
     utilice la fecha contable del sistema y no la del sistema operativo.
 
     Returns:
-        dict: Un diccionario con 'fecha' y 'turno_texto'. En caso de error o
-              si no hay turnos, retorna valores indicando la situación.
+        dict: Un diccionario con 'fecha', 'turno_texto' y 'turno_bd'. En caso
+              de error o si no hay turnos, retorna valores por defecto.
     """
     with connection.cursor() as cursor:
         try:
@@ -98,11 +100,12 @@ def obtener_turno_activo():
                 # Mapeo visual para la pantalla
                 nombres_turnos = {'1': 'Desayuno', '2': 'Almuerzo', '3': 'Cena'}
                 texto_turno = nombres_turnos.get(numero_turno, f"Turno {numero_turno}")
+                turno_bd = numero_turno if numero_turno in ['1', '2', '3'] else '1'
                 
-                return {'fecha': fecha, 'turno_texto': texto_turno}
-            return {'fecha': 'Sin Fecha', 'turno_texto': 'Sin Turno'}
+                return {'fecha': fecha, 'turno_texto': texto_turno, 'turno_bd': turno_bd}
+            return {'fecha': 'Sin Fecha', 'turno_texto': 'Sin Turno', 'turno_bd': '1'}
         except Exception:
-            return {'fecha': 'Error BD', 'turno_texto': 'Error BD'}
+            return {'fecha': 'Error BD', 'turno_texto': 'Error BD', 'turno_bd': '1'}
 
 # =====================================================================
 # BLOQUE 2: PLANO DE MESAS
@@ -408,13 +411,8 @@ def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
     """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
-    turno_actual = datos_turno['turno_texto'] 
+    turno_bd = datos_turno['turno_bd']
     
-    # Mapeo a BD (Por si se guarda número de turno y no nombre)
-    turno_bd = '1'
-    if turno_actual == 'Almuerzo': turno_bd = '2'
-    elif turno_actual == 'Cena': turno_bd = '3'
-
     nuevo_folio = generar_nuevo_folio()
     garzon_id = obtener_garzon_usuario(usuario_id)
     
@@ -838,8 +836,8 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
     """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
-    turno_bd = '2' if datos_turno['turno_texto'] == 'Almuerzo' else ('3' if datos_turno['turno_texto'] == 'Cena' else '1')
-
+    turno_bd = datos_turno['turno_bd']
+    
     # Desempaquetar datos del producto principal
     clase_padre = producto_padre['clase']
     grupo_padre = producto_padre['grupo']
@@ -969,8 +967,6 @@ def comandar_ticket(folio):
     Args:
         folio (str): El folio de la cuenta a comandar.
     """
-    from collections import defaultdict
-
     # Diccionario de destinos: Mapea el número de Despacho con la tabla real
     destinos_impresion = {
         1: 'PCocina',
@@ -1091,7 +1087,7 @@ def comandar_ticket(folio):
         """
         cursor.execute(sql_update_flag, [folio])
 
-def mover_producto_cuenta(folio, indice, cuenta_origen, cuenta_destino):
+def mover_producto_cuenta(folio, indice, cuenta_destino):
     """
     Mueve un producto padre y todos sus hijos (agrupados por Indice)
     de una sub-cuenta a otra.
@@ -1099,7 +1095,6 @@ def mover_producto_cuenta(folio, indice, cuenta_origen, cuenta_destino):
     Args:
         folio (str): El folio de la mesa.
         indice (int): El Indice del grupo de productos a mover.
-        cuenta_origen (str): La sub-cuenta de origen del producto (no se usa en el SQL para mover en bloque).
         cuenta_destino (str): La sub-cuenta de destino del producto.
     """
     with connection.cursor() as cursor:

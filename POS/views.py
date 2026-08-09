@@ -258,10 +258,9 @@ def api_mover_producto(request):
         data = json.loads(request.body)
         folio = data.get('folio')
         indice = data.get('indice')
-        origen = data.get('cuenta_origen')
         destino = data.get('cuenta_destino')
         
-        services.mover_producto_cuenta(folio, indice, origen, destino)
+        services.mover_producto_cuenta(folio, indice, destino)
         return JsonResponse({'status': 'ok'})
     return JsonResponse({'status': 'bad_request'}, status=400)
 
