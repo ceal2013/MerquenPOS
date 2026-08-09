@@ -59,15 +59,17 @@
         .mesa-numero { font-size: 2.2rem; font-weight: 700; margin-bottom: 2px; line-height: 1; }
         
         .mesa-estado-texto { 
+            /* Se usa Flexbox para permitir que el texto se ajuste en vez de cortarse */
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 2px 6px; /* Espacio vertical y horizontal entre elementos */
             font-size: 0.85rem; 
             font-weight: 600; 
             text-transform: uppercase; 
             letter-spacing: 0.5px; 
             margin-top: 5px; 
             margin-bottom: 0; 
-            white-space: nowrap; 
-            overflow: hidden; 
-            text-overflow: ellipsis; 
         }
         
         .mesa-tiempo {
@@ -171,11 +173,10 @@
                                             {% if mesa.estado == 'libre' %}
                                                 <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
                                             {% else %}
-                                                <p class="mesa-estado-texto" title="Garzón: {{ mesa.nombreGarzon|default:'N/A' }} | Comensales: {{ mesa.cubiertos }}">
-                                                    <span class="text-nowrap"><i class="fa-solid fa-clipboard-user me-1"></i> {{ mesa.nombreGarzon|default:'Ocupada' }}</span>
-                                                    <span class="mx-1">|</span>
-                                                    <span class="text-nowrap"><i class="fa-solid fa-utensils me-1"></i> {{ mesa.cubiertos }}</span>
-                                                </p>
+                                                <div class="mesa-estado-texto" title="Garzón: {{ mesa.nombreGarzon|default:'N/A' }} | Comensales: {{ mesa.cubiertos }}">
+                                                    <span><i class="fa-solid fa-clipboard-user me-1"></i> {{ mesa.nombreGarzon|default:'Ocupada' }}</span>
+                                                    <span><i class="fa-solid fa-utensils me-1"></i> {{ mesa.cubiertos }}</span>
+                                                </div>
                                                 <div class="mesa-tiempo">
                                                     <div>{{ mesa.fecha }}</div>
                                                     <div>{{ mesa.hora }}</div>
@@ -336,11 +337,10 @@
                                 const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
                                 const estadoContenido = mesa.estado === 'libre'
                                     ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
-                                    : `<p class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${mesa.cubiertos}">
-                                           <span class="text-nowrap"><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
-                                           <span class="mx-1">|</span>
-                                           <span class="text-nowrap"><i class="fa-solid fa-utensils me-1"></i> ${mesa.cubiertos}</span>
-                                       </p>
+                                    : `<div class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${mesa.cubiertos}">
+                                           <span><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
+                                           <span><i class="fa-solid fa-utensils me-1"></i> ${mesa.cubiertos}</span>
+                                       </div>
                                        <div class="mesa-tiempo"><div>${mesa.fecha}</div><div>${mesa.hora}</div></div>`;
 
                                 const mesaCardHTML = `
