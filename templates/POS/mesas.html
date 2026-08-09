@@ -160,6 +160,7 @@
                                 {% for mesa in punto.mesas %}
                                     <div class="col">
                                         <div class="mesa-card estado-{{ mesa.estado }}" 
+                                             data-numero="{{ mesa.numero }}"
                                              onclick="handleMesaCardClick('{{ punto.codigo }}', '{{ mesa.numero }}', {{ mesa.bloqueada|yesno:"true,false" }}, '{{ mesa.usuarioBloqueo|escapejs }}', '{{ mesa.estado }}')">
                                             
                                             {% if mesa.bloqueada %}
@@ -286,12 +287,23 @@
         // Variables globales para los Modales
         let modalCubiertosObj;
         let modalAnularObj;
+        let refreshIntervalId = null;
         let valorActual = "";
         const display = document.getElementById('displayCubiertos');
 
         // --- INICIALIZACIÓN AL CARGAR LA PÁGINA ---
         document.addEventListener('DOMContentLoaded', function() {
             
+            // Iniciar el mecanismo de auto-refresco
+            startAutoRefresh();
+
+            // Pausar el refresco cuando se abre un modal
+            document.getElementById('modalCubiertos').addEventListener('show.bs.modal', () => clearInterval(refreshIntervalId));
+            document.getElementById('modalAnularMesa').addEventListener('show.bs.modal', () => clearInterval(refreshIntervalId));
+            // Reanudar el refresco cuando se cierra un modal
+            document.getElementById('modalCubiertos').addEventListener('hidden.bs.modal', startAutoRefresh);
+            document.getElementById('modalAnularMesa').addEventListener('hidden.bs.modal', startAutoRefresh);
+
             // 1. Inicializar los modales de Bootstrap para poder llamarlos desde JS
             modalCubiertosObj = new bootstrap.Modal(document.getElementById('modalCubiertos'));
             modalAnularObj = new bootstrap.Modal(document.getElementById('modalAnularMesa'));
@@ -327,32 +339,11 @@
                         mesasContainer.innerHTML = '';
 
                         if (data.mesas.length === 0) {
-                            mesasContainer.innerHTML = '<div class="col-12"><p class="text-muted text-center py-5">No hay mesas configuradas en este sector.</p></div>';
+                            mesasContainer.innerHTML = '<div class="col-12 text-center py-5"><p class="text-muted">No hay mesas configuradas en este sector.</p></div>';
                         } else {
-                            // Creamos las tarjetas de las mesas dinámicamente
                             data.mesas.forEach(mesa => {
-                                const garzon = mesa.nombreGarzon || 'Ocupada';
-                                const usuarioBloqueoEscaped = mesa.usuarioBloqueo.replace(/'/g, "\\'");
-                                const onclickAction = `handleMesaCardClick('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}', '${mesa.estado}')`;
-                                const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
-                                const estadoContenido = mesa.estado === 'libre'
-                                    ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
-                                    : `<div class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${mesa.cubiertos}">
-                                           <span><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
-                                           <span><i class="fa-solid fa-utensils me-1"></i> ${mesa.cubiertos}</span>
-                                       </div>
-                                       <div class="mesa-tiempo"><div>${mesa.fecha}</div><div>${mesa.hora}</div></div>`;
-
-                                const mesaCardHTML = `
-                                    <div class="col">
-                                        <div class="mesa-card estado-${mesa.estado}" onclick="${onclickAction}">
-                                            ${bloqueoBadge}
-                                            <p class="mesa-numero">${mesa.numero}</p>
-                                            ${estadoContenido}
-                                        </div>
-                                    </div>
-                                `;
-                                mesasContainer.insertAdjacentHTML('beforeend', mesaCardHTML);
+                                const cardHTML = createMesaCardHTML(mesa, puntoCodigo);
+                                mesasContainer.insertAdjacentHTML('beforeend', cardHTML);
                             });
                         }
 
@@ -378,6 +369,98 @@
             }
 
         });
+
+        // --- LÓGICA DE AUTO-REFRESCO ---
+
+        function startAutoRefresh() {
+            // Limpiar cualquier intervalo anterior para evitar duplicados
+            if (refreshIntervalId) {
+                clearInterval(refreshIntervalId);
+            }
+
+            refreshIntervalId = setInterval(() => {
+                // Pausa si un modal está abierto (Bootstrap añade 'modal-open' al body)
+                if (document.body.classList.contains('modal-open')) {
+                    return;
+                }
+
+                const activeTab = document.querySelector('#puntosVentaTab .nav-link.active');
+                if (activeTab && activeTab.dataset.loaded === 'true') {
+                    const puntoCodigo = activeTab.dataset.puntoCodigo;
+                    refreshActiveTabData(puntoCodigo);
+                }
+            }, 30000); // 30 segundos
+        }
+
+        function refreshActiveTabData(puntoCodigo) {
+            fetch(`/pos/api/mesas/${puntoCodigo}/`)
+                .then(response => {
+                    if (!response.ok) throw new Error('Error de red al refrescar mesas.');
+                    return response.json();
+                })
+                .then(data => {
+                    const panel = document.querySelector(`#panel-${puntoCodigo}`);
+                    const mesasContainer = panel.querySelector('.mesas-container');
+                    updateMesasInDOM(mesasContainer, data.mesas, puntoCodigo);
+                })
+                .catch(error => {
+                    console.error(`Error durante auto-refresco para punto ${puntoCodigo}:`, error);
+                });
+        }
+
+        function updateMesasInDOM(container, nuevasMesas, puntoCodigo) {
+            const mesasActuales = new Map();
+            container.querySelectorAll('.col').forEach(col => {
+                const card = col.querySelector('.mesa-card');
+                if (card && card.dataset.numero) {
+                    mesasActuales.set(card.dataset.numero, col);
+                }
+            });
+
+            nuevasMesas.forEach(mesa => {
+                const colExistente = mesasActuales.get(mesa.numero);
+                const nuevaCardHTML = createMesaCardHTML(mesa, puntoCodigo);
+
+                if (colExistente) {
+                    // Compara el HTML nuevo con el existente para evitar parpadeos innecesarios.
+                    // Solo actualiza si el contenido ha cambiado.
+                    if (colExistente.innerHTML.trim() !== nuevaCardHTML.trim()) {
+                        colExistente.innerHTML = nuevaCardHTML;
+                    }
+                    mesasActuales.delete(mesa.numero); // Marcar como procesada
+                } else {
+                    // Si la mesa es nueva, la añade al final.
+                    container.insertAdjacentHTML('beforeend', nuevaCardHTML);
+                }
+            });
+
+            // Las mesas que queden en el Map ya no existen, se eliminan del DOM.
+            mesasActuales.forEach(col => col.remove());
+        }
+
+        function createMesaCardHTML(mesa, puntoCodigo) {
+            const garzon = mesa.nombreGarzon || 'Ocupada';
+            const usuarioBloqueoEscaped = mesa.usuarioBloqueo.replace(/'/g, "\\'");
+            const onclickAction = `handleMesaCardClick('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}', '${mesa.estado}')`;
+            const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
+            const estadoContenido = mesa.estado === 'libre'
+                ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
+                : `<div class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${mesa.cubiertos}">
+                       <span><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
+                       <span><i class="fa-solid fa-utensils me-1"></i> ${mesa.cubiertos}</span>
+                   </div>
+                   <div class="mesa-tiempo"><div>${mesa.fecha}</div><div>${mesa.hora}</div></div>`;
+
+            return `
+                <div class="col">
+                    <div class="mesa-card estado-${mesa.estado}" data-numero="${mesa.numero}" onclick="${onclickAction}">
+                        ${bloqueoBadge}
+                        <p class="mesa-numero">${mesa.numero}</p>
+                        ${estadoContenido}
+                    </div>
+                </div>
+            `;
+        }
 
         // --- LÓGICA DE INTERACCIÓN CON MESAS ---
         function handleMesaCardClick(punto, numero, estaBloqueada, usuarioBloqueo, estadoVisual) {
