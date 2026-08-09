@@ -423,9 +423,10 @@
 
                 if (colExistente) {
                     // Compara el HTML nuevo con el existente para evitar parpadeos innecesarios.
-                    // Solo actualiza si el contenido ha cambiado.
-                    if (colExistente.innerHTML.trim() !== nuevaCardHTML.trim()) {
-                        colExistente.innerHTML = nuevaCardHTML;
+                    // CORRECCIÓN: Se usa outerHTML para comparar y reemplazar el nodo completo (<div class="col">),
+                    // evitando la anidación que rompía el layout de la grilla.
+                    if (colExistente.outerHTML.trim() !== nuevaCardHTML.trim()) {
+                        colExistente.outerHTML = nuevaCardHTML;
                     }
                     mesasActuales.delete(mesa.numero); // Marcar como procesada
                 } else {
