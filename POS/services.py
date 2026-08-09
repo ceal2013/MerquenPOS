@@ -158,8 +158,8 @@ def getEstadoMesas(codigoPunto):
         mesas_dict = {
             fila[0].strip(): {
                 'numero': fila[0].strip(), 'estado': 'libre', 'total': 0,
-                'bloqueada': False, 'usuarioBloqueo': '', 'nombreGarzon': '',
-                'fecha': '', 'hora': ''
+                'bloqueada': False, 'usuarioBloqueo': '', 'nombreGarzon': '', 'cubiertos': 0,
+                'fecha': '', 'hora': '',
             } for fila in cursor.fetchall()
         }
 
@@ -170,7 +170,7 @@ def getEstadoMesas(codigoPunto):
         # Esta consulta es más simple y solo afecta a las mesas que realmente están ocupadas.
         sql_cuentas = """
             SELECT 
-                c.Mesa, c.Total, c.Cuenta, c.Fecha, c.Hora, g.Nombre AS NombreGarzon
+                c.Mesa, c.Total, c.Cuenta, c.Fecha, c.Hora, g.Nombre AS NombreGarzon, c.Cubiertos
             FROM CtasMesas c
             LEFT JOIN Garzones g ON c.Garzon = g.Codigo
             WHERE c.Punto = %s AND c.Status = '0'
@@ -181,6 +181,7 @@ def getEstadoMesas(codigoPunto):
             if mesa_num in mesas_dict:
                 total = fila[1] if fila[1] else 0
                 es_impresa = fila[2] == '1'
+                cubiertos = fila[6] if fila[6] else 0
                 
                 estado_actual = 'impresa' if es_impresa else 'ocupada'
                 mesa_obj = mesas_dict[mesa_num]
@@ -199,6 +200,8 @@ def getEstadoMesas(codigoPunto):
                     mesa_obj['fecha'] = fila[3].strftime("%d/%m")
                 if not mesa_obj['hora'] and fila[4]:
                     mesa_obj['hora'] = fila[4]
+                if mesa_obj['cubiertos'] == 0 and cubiertos > 0:
+                    mesa_obj['cubiertos'] = cubiertos
 
         # 3. Obtener las mesas bloqueadas desde ControlMesas.
         sql_bloqueos = """

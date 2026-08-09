@@ -171,9 +171,10 @@
                                             {% if mesa.estado == 'libre' %}
                                                 <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
                                             {% else %}
-                                                <p class="mesa-estado-texto" title="Atendida por: {{ mesa.nombreGarzon|default:'Ocupada' }}">
-                                                    <i class="fa-solid fa-clipboard-user me-1"></i> 
-                                                    {{ mesa.nombreGarzon|default:'Ocupada' }}
+                                                <p class="mesa-estado-texto" title="Garzón: {{ mesa.nombreGarzon|default:'N/A' }} | Comensales: {{ mesa.cubiertos }}">
+                                                    <span class="text-nowrap"><i class="fa-solid fa-clipboard-user me-1"></i> {{ mesa.nombreGarzon|default:'Ocupada' }}</span>
+                                                    <span class="mx-1">|</span>
+                                                    <span class="text-nowrap"><i class="fa-solid fa-utensils me-1"></i> {{ mesa.cubiertos }}</span>
                                                 </p>
                                                 <div class="mesa-tiempo">
                                                     <div>{{ mesa.fecha }}</div>
@@ -333,9 +334,13 @@
                                 const usuarioBloqueoEscaped = mesa.usuarioBloqueo.replace(/'/g, "\\'");
                                 const onclickAction = `handleMesaCardClick('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}', '${mesa.estado}')`;
                                 const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
-                                const estadoContenido = mesa.estado === 'libre' 
+                                const estadoContenido = mesa.estado === 'libre'
                                     ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
-                                    : `<p class="mesa-estado-texto" title="Atendida por: ${garzon}"><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</p>
+                                    : `<p class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${mesa.cubiertos}">
+                                           <span class="text-nowrap"><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
+                                           <span class="mx-1">|</span>
+                                           <span class="text-nowrap"><i class="fa-solid fa-utensils me-1"></i> ${mesa.cubiertos}</span>
+                                       </p>
                                        <div class="mesa-tiempo"><div>${mesa.fecha}</div><div>${mesa.hora}</div></div>`;
 
                                 const mesaCardHTML = `
