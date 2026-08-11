@@ -39,6 +39,15 @@ else:
     allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS')
     ALLOWED_HOSTS = allowed_hosts_env.split(',') if allowed_hosts_env else []
 
+# === NUEVO BLOQUE QUE DEBES AGREGAR ===
+# Reemplaza '192.168.1.xxx' por la IP real de tu servidor
+CSRF_TRUSTED_ORIGINS = [
+    #'http://192.168.1.xxx',     # <--- TU IP DEL SERVIDOR AQUÍ
+    'http://localhost',
+    #'http://merquenpos.local',  # Agrega esto si configuraste el nombre local
+]
+# ======================================
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -154,9 +163,9 @@ SESSION_COOKIE_AGE = 14400
 SESSION_SAVE_EVERY_REQUEST = True
 
 # --- MEJORAS DE SEGURIDAD PARA COOKIES (en producción) ---
-# Solo enviar la cookie de sesión sobre HTTPS.
-SESSION_COOKIE_SECURE = not DEBUG
-# Solo enviar la cookie CSRF sobre HTTPS.
-CSRF_COOKIE_SECURE = not DEBUG
+# En una red LAN interna sin certificado SSL, esto DEBE ser False.
+SESSION_COOKIE_SECURE = False
+# En una red LAN interna sin certificado SSL, esto DEBE ser False.
+CSRF_COOKIE_SECURE = False
 # Previene que JavaScript del lado del cliente acceda a la cookie de sesión.
 SESSION_COOKIE_HTTPONLY = True
