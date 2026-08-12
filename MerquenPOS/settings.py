@@ -39,14 +39,14 @@ else:
     allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS')
     ALLOWED_HOSTS = allowed_hosts_env.split(',') if allowed_hosts_env else []
 
-# === NUEVO BLOQUE QUE DEBES AGREGAR ===
-# Reemplaza '192.168.1.xxx' por la IP real de tu servidor
-CSRF_TRUSTED_ORIGINS = [
-    #'http://192.168.1.xxx',     # <--- TU IP DEL SERVIDOR AQUÍ
-    'http://localhost',
-    #'http://merquenpos.local',  # Agrega esto si configuraste el nombre local
-]
-# ======================================
+# Orígenes de confianza para validación CSRF.
+# Se añade localhost por defecto y se inyectan las URLs de producción desde el entorno.
+CSRF_TRUSTED_ORIGINS = ['http://localhost']
+
+csrf_trusted_env = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS')
+if csrf_trusted_env:
+    # Separa las URLs por coma en caso de haber múltiples (ej: http://ip,http://dominio)
+    CSRF_TRUSTED_ORIGINS.extend(csrf_trusted_env.split(','))
 
 # Application definition
 
