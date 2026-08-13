@@ -361,13 +361,11 @@
         let cuentaVisible = cuentasActivas[0] || '1';
         
         let comanda = consumosBD.map(item => {
-            // Transformar IDs a string para evitar errores de validación entre texto y número
             const indiceStr = item.indice ? String(item.indice) : null;
             const subindiceStr = item.subindice ? String(item.subindice) : null;
             const isMenu = String(item.menu) === '1';
             
-            // Es hijo si tiene ambos IDs y son distintos
-            const esHijo = (indiceStr !== null && subindiceStr !== null && indiceStr !== subindiceStr);
+            const esHijo = (isMenu && indiceStr !== null && subindiceStr !== null && indiceStr !== subindiceStr);
 
             return {
                 codigo: String(item.codigo), 
@@ -383,6 +381,7 @@
                 subindice: subindiceStr,
                 menu: isMenu ? '1' : '0',
                 es_hijo: esHijo,
+                total_categorias: item.total_categorias || 0,
                 frontend_group_id: null
             };
         });
@@ -403,7 +402,6 @@
 
             document.getElementById('btn-confirmar-menu-armable').addEventListener('click', confirmarMenuArmable);
 
-            // Limpiar memoria al cerrar el modal de menú (click fuera o cancelar)
             document.getElementById('modalArmarMenu').addEventListener('hidden.bs.modal', function () {
                 menuArmablePendiente = null;
                 menuPadreEditando = null;
@@ -598,8 +596,32 @@
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
                     ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
-                // Botón [+] ahora aparece SIEMPRE en los menús padre.
-                const btnCompletarMenu = (item.menu === '1' && !item.es_hijo)
+                // === LÓGICA DE BOTÓN [+] DINÁMICO ===
+                const esPadreMenu = (item.menu === '1' && !item.es_hijo);
+                let mostrarBotonMas = false;
+
+                if (esPadreMenu && item.total_categorias > 0) {
+                    const opcionesRequeridas = item.cantidad * item.total_categorias;
+                    let opcionesActuales = 0;
+
+                    // Contar cuántas opciones hijas tiene este menú actualmente
+                    comanda.forEach(hijo => {
+                        if (hijo.es_hijo) {
+                            const esHijoDB = (item.subindice && hijo.indice === item.subindice);
+                            const esHijoFront = (item.frontend_group_id && hijo.frontend_group_id === item.frontend_group_id);
+                            if (esHijoDB || esHijoFront) {
+                                opcionesActuales += hijo.cantidad;
+                            }
+                        }
+                    });
+
+                    // Si le faltan opciones, se muestra el botón [+]
+                    if (opcionesActuales < opcionesRequeridas) {
+                        mostrarBotonMas = true;
+                    }
+                }
+
+                const btnCompletarMenu = mostrarBotonMas
                     ? `<button class="btn btn-success text-white btn-accion-linea ms-1" onclick="completarMenuExistente(${index})" title="Agregar opciones al menú"><i class="fa-solid fa-plus"></i></button>`
                     : '';
 
@@ -731,7 +753,7 @@
             renderizarTicket();
         }
 
-        // --- FLUJO DE AGREGAR AL TICKET (Normal y Variedades) ---
+        // --- FLUJO DE AGREGAR AL TICKET ---
         function agregarAlTicket(codigo, nombre, precio, clase, grupo, es_menu = false) {
             let cantAUsar = multiplicadorActivo;
             multiplicadorActivo = 1;
@@ -817,6 +839,7 @@
                     cuenta: cuentaVisible,
                     menu: '0',
                     es_hijo: false,
+                    total_categorias: 0,
                     frontend_group_id: null
                 });
             }
@@ -891,9 +914,8 @@
         function completarMenuExistente(index) {
             menuPadreEditando = comanda[index];
 
-            // Seguridad: Si intentan editar un menú recién agregado sin haber comandado primero.
             if (!menuPadreEditando.subindice) {
-                alert("Para agregar más opciones a un menú recién ingresado, por favor presione 'Confirmar' abajo para registrarlo en el sistema primero.");
+                alert("Para agregar más opciones a un menú recién ingresado, por favor presione 'Confirmar' abajo para registrarlo en la cocina primero.");
                 menuPadreEditando = null;
                 return;
             }
@@ -935,7 +957,6 @@
 
                 let cantidadYaIngresada = 0;
                 if (esEdicion) {
-                    // Contar de manera precisa los hijos ya ingresados
                     const hijos = comanda.filter(item => {
                         if (!item.es_hijo) return false;
                         if (menuPadreEditando.subindice && String(item.indice) === String(menuPadreEditando.subindice)) return true;
@@ -1065,7 +1086,6 @@
             const { productoPadre, selecciones, opcionesDisponibles } = menuArmablePendiente;
             const esEdicion = !!menuPadreEditando;
             
-            // Generar o reusar el ID de agrupación
             const frontendGroupId = esEdicion ? menuPadreEditando.frontend_group_id : Date.now();
         
             const opcionesNuevas = [];
@@ -1090,6 +1110,7 @@
                                 es_hijo: true, menu: '0',
                                 indice: esEdicion ? menuPadreEditando.subindice : null,
                                 subindice: null,
+                                total_categorias: 0,
                                 frontend_group_id: frontendGroupId
                             });
                         }
@@ -1126,7 +1147,8 @@
                 const itemPadre = {
                     ...productoPadre,
                     estado: 'nuevo', nota: '', cuenta: cuentaVisible,
-                    es_hijo: false, frontend_group_id: frontendGroupId, menu: '1'
+                    es_hijo: false, frontend_group_id: frontendGroupId, menu: '1',
+                    total_categorias: Object.keys(opcionesDisponibles).length
                 };
 
                 const payload = {

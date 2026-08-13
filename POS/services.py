@@ -785,24 +785,19 @@ def buscar_productos_por_nombre(punto, termino):
 # =====================================================================
 
 def obtener_consumos_mesa(folio):
-    """Obtiene todos los productos consumidos y no pagados de una cuenta.
-
-    Recupera de la tabla `Consumos` todos los ítems asociados a un folio que
-    tienen `Status = '0'` (no pagado) y no están anulados. Incluye información
-    sobre si el ítem ya fue comandado (`Flag`).
-
-    Args:
-        folio (str): El folio de la cuenta a consultar.
-
-    Returns:
-        list[dict]: Una lista de diccionarios, cada uno representando un
-                    producto consumido con sus detalles.
-    """
+    """Obtiene todos los productos consumidos y no pagados de una cuenta."""
     with connection.cursor() as cursor:
+        # Se agrega el SubIndice, Menu, y un conteo de las categorías del menú (TotalCategorias)
         sql = """
             SELECT 
                 c.Producto, p.NProducto, c.Valor, c.Cantidad, 
-                c.Clase, c.Grupo, c.Nota, c.Cuenta, c.Flag, c.Indice
+                c.Clase, c.Grupo, c.Nota, c.Cuenta, c.Flag, c.Indice,
+                c.SubIndice, c.Menu,
+                (SELECT COUNT(DISTINCT m.Menu) 
+                 FROM Menus m 
+                 WHERE m.Familia = c.Clase 
+                   AND m.Seccion = c.Grupo 
+                   AND m.Codigo = c.Producto) AS TotalCategorias
             FROM Consumos c
             JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
             WHERE c.Folio = %s 
@@ -823,7 +818,10 @@ def obtener_consumos_mesa(folio):
                 'nota': fila[6].strip() if fila[6] else '',
                 'cuenta': str(fila[7]).strip() if fila[7] else '1',
                 'flag': str(fila[8]).strip() if fila[8] else '0',
-                'indice': fila[9]
+                'indice': fila[9],
+                'subindice': fila[10],
+                'menu': str(fila[11]).strip() if fila[11] else '0',
+                'total_categorias': int(fila[12]) if fila[12] else 0
             })
         return consumos
     
