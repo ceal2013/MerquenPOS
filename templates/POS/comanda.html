@@ -583,27 +583,41 @@ let nivelActual = 'familias';
             let totalCuentaActiva = 0;
 
             comanda.forEach((item, index) => {
+                // FILTRO: Solo mostramos los productos que pertenecen a la pestaña actual
                 if (item.cuenta !== cuentaVisible) return;
         
                 totalCuentaActiva += (item.precio * item.cantidad);
                 const subtotalLinea = item.precio * item.cantidad;
         
+                // Botón para mover producto entre cuentas (solo para padres comandados)
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
                     ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
-                const btnCompletarMenu = (item.menu === '1' && !item.es_hijo && item.estado === 'guardado')
+                // Botón '+' para agregar opciones. Ahora se muestra SIEMPRE que sea un menú padre.
+                const btnCompletarMenu = (item.menu === '1' && !item.es_hijo)
                     ? `<button class="btn btn-success text-white btn-accion-linea ms-1" onclick="completarMenuExistente(${index})" title="Agregar opciones al menú"><i class="fa-solid fa-plus"></i></button>`
                     : '';
 
                 let iconosHtml = '';
                 if (item.estado === 'guardado') {
+                    // Ítems comandados:
                     if (!item.es_hijo) {
                         iconosHtml = `<span class="text-success fs-5" title="Comandado"><i class="fa-solid fa-print"></i></span>${btnMover}${btnCompletarMenu}`;
                     }
+                    // Los hijos comandados no muestran acciones.
                 } else {
-                    iconosHtml = `
-                        <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
-                        <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
+                    // Ítems nuevos (no comandados):
+                    if (!item.es_hijo) {
+                        // Si es menú padre nuevo, muestra el botón [+], lápiz y basurero
+                        iconosHtml = `${btnCompletarMenu}
+                            <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
+                            <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
+                    } else {
+                        // Si es una opción hija nueva, solo muestra lápiz y basurero
+                        iconosHtml = `
+                            <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
+                            <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
+                    }
                 }
         
                 const tr = document.createElement('tr');
@@ -619,10 +633,7 @@ let nivelActual = 'familias';
                 tdPrecio.className = 'text-end';
                 tdPrecio.textContent = `$${subtotalLinea.toFixed(0)}`;
                 
-                if (item.es_hijo) {
-                    tdProd.innerHTML = `<i class="fa-solid fa-turn-up fa-rotate-90 me-1 text-muted"></i> ` + tdProd.innerHTML;
-                }
-
+                // Si tiene una nota, la muestra debajo del nombre (sin la flecha de enter en el nombre)
                 if (item.nota) {
                     const noteElement = document.createElement('small');
                     noteElement.className = 'text-warning fw-bold d-block';
