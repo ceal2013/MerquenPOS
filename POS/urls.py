@@ -20,7 +20,7 @@ urlpatterns = [
     path('api/ticket/mover/', views.api_mover_producto, name='api_mover_producto'),
     path('api/variedades/<str:clase>/<str:grupo>/<str:producto>/', views.api_get_variedades, name='api_variedades'),
     path('api/menu/opciones/<str:clase>/<str:grupo>/<str:producto>/', views.api_opciones_menu, name='api_opciones_menu'),
-    path('api/menu/agregar_opciones/', views.api_agregar_opciones_menu, name='api_agregar_opciones_menu'),
+    path('api/ticket/agregar_opciones_menu/', views.api_agregar_opciones_menu, name='api_agregar_opciones_menu'),
     path('api/productos/buscar/', views.api_buscar_productos, name='api_buscar_productos'),
     path('api/ticket/cubiertos/', views.api_actualizar_cubiertos, name='api_actualizar_cubiertos'),
     

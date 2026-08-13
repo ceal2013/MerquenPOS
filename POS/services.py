@@ -829,14 +829,11 @@ def obtener_consumos_mesa(folio):
 def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, opciones=None):
     """
     Inserta un producto o un paquete de menú (padre + hijos) en Consumos.
-    - Para paquetes, inserta el padre, obtiene su SubIndice, y lo usa como Indice para los hijos.
-    - Para productos simples, busca si existe uno no comandado para agrupar, o inserta uno nuevo.
     """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = datos_turno['turno_bd']
     
-    # Desempaquetar datos del producto principal
     clase_padre = producto_padre['clase']
     grupo_padre = producto_padre['grupo']
     producto_padre_cod = producto_padre['producto']
@@ -861,11 +858,13 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
             if fila:
                 subindice = fila[0]
                 cursor.execute("UPDATE Consumos SET Cantidad = Cantidad + %s WHERE SubIndice = %s", [cantidad_padre, subindice])
-                return # Fin de la operación
+                return
 
         # CASO 2: Es un producto nuevo (simple o padre de menú). Se inserta.
+        # CORRECCIÓN BUG MESA: Usamos fetchone() de manera directa sin depender de rowcount
         cursor.execute("SELECT TOP 1 Mesa FROM CtasMesas WHERE Folio = %s", [folio])
-        mesa = cursor.fetchone()[0] if cursor.rowcount > 0 else ''
+        fila_mesa = cursor.fetchone()
+        mesa = fila_mesa[0].strip() if fila_mesa and fila_mesa[0] else ''
 
         sql_insert_padre = """
             INSERT INTO Consumos (
@@ -903,36 +902,30 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
                     Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
                     Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
                     Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
-                ) VALUES ( -- CORRECCIÓN: El campo 'Menu' se establece en '1' para los hijos.
+                ) VALUES ( 
                     %s, %s, %s, %s, %s, %s, '', '', '',
                     '0', %s, %s, %s, %s, '', '0',
                     %s, %s, %s, %s, %s, %s, %s,
                     '1', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
-                ) -- Un producto hijo es parte de un menú, por lo que hereda esta propiedad.
+                ) 
             """
             for opcion in opciones:
+                # CORRECCIÓN: usamos .get('precio', 0) para evitar que falle si JS olvida mandarlo
                 cursor.execute(sql_insert_hijo, [
-                    punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'], opcion['precio'],
+                    punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'], opcion.get('precio', 0),
                     folio, fecha_proceso, turno_bd, opcion['clase'],
                     cuenta, usuario_id,
-                    clase_padre, grupo_padre, producto_padre_cod, # m-fields apuntan al padre
-                    subindice_padre, # Indice del hijo es el SubIndice del padre
-                    opcion['precio'],
+                    clase_padre, grupo_padre, producto_padre_cod, 
+                    subindice_padre, 
+                    opcion.get('precio', 0),
                     opcion.get('nota', '')
                 ])
+
 
 @transaction.atomic
 def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_padre, opciones):
     """
     Agrega productos de opción (hijos) a un menú ya existente en la comanda.
-
-    Args:
-        folio (str): El folio de la mesa.
-        punto (str): El código del punto de venta.
-        cuenta (str): La sub-cuenta a la que pertenecen las opciones.
-        usuario_id (int): El ID del usuario que agrega las opciones.
-        indice_padre (int): El SubIndice del producto menú padre al que se enlazarán estas opciones.
-        opciones (list[dict]): Lista de diccionarios, cada uno representando una opción a agregar.
     """
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
@@ -950,7 +943,8 @@ def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_p
         if not fila_padre:
             raise ValueError(f"No se encontró el producto menú padre con Indice {indice_padre} para el folio {folio}.")
 
-        mesa = fila_padre[0]
+        # Heredar la mesa exacta en la que se guardó el padre
+        mesa = fila_padre[0].strip() if fila_padre[0] else ''
         clase_padre = fila_padre[1]
         grupo_padre = fila_padre[2]
         producto_padre_cod = fila_padre[3]
@@ -963,9 +957,9 @@ def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_p
                 Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
                 Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
             ) VALUES (
-                %s, %s, %s, %s, %s, 0, '', '', '',
+                %s, %s, %s, %s, %s, %s, '', '', '',
                 '0', %s, %s, %s, %s, '', '0',
-                %s, %s, %s, %s, %s, %s, 0,
+                %s, %s, %s, %s, %s, %s, %s,
                 '1', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
             )
         """
@@ -973,11 +967,12 @@ def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_p
         # 3. Iterar e insertar cada opción.
         for opcion in opciones:
             cursor.execute(sql_insert_hijo, [
-                punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'],
+                punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'], opcion.get('precio', 0),
                 folio, fecha_proceso, turno_bd, opcion['clase'],
                 cuenta, usuario_id,
-                clase_padre, grupo_padre, producto_padre_cod, # m-fields apuntan al padre
-                indice_padre, # Indice del hijo es el SubIndice del padre
+                clase_padre, grupo_padre, producto_padre_cod, 
+                indice_padre, 
+                opcion.get('precio', 0),
                 opcion.get('nota', '')
             ])
 
