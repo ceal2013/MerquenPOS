@@ -335,12 +335,12 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        let nivelActual = 'familias'; 
+let nivelActual = 'familias'; 
         let claseActiva = ''; 
         let nombreFamiliaActiva = '';
         let multiplicadorActivo = 1; 
 
-        // --- FUNCIÓN ESTÁNDAR DE DJANGO PARA OBTENER EL TOKEN CSRF DESDE LA COOKIE ---
+        // --- FUNCIÓN ESTÁNDAR DE DJANGO PARA OBTENER EL TOKEN CSRF ---
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
@@ -359,15 +359,15 @@
 
         // 1. Mapeo de datos desde el backend
         const consumosBD = JSON.parse(document.getElementById('consumos-data').textContent);
-        let cuentasActivas = JSON.parse(document.getElementById('cuentas-data').textContent); // ['1', '2', ...]
-        
+        let cuentasActivas = JSON.parse(document.getElementById('cuentas-data').textContent);
         let cuentaVisible = cuentasActivas[0] || '1';
         
-        // Se capturan los campos adicionales 'subindice' y 'menu' para la nueva lógica.
-        // Se asume que el backend (obtener_consumos_mesa) ya los está proveyendo.
         let comanda = consumosBD.map(item => {
-            // Un producto es hijo si su 'indice' (ID de grupo) es distinto a su 'subindice' (ID único).
-            const esHijo = item.indice !== item.subindice;
+            // CORRECCIÓN 1: Lógica robusta para identificar opciones de menú
+            const indiceStr = item.indice ? String(item.indice) : 'A';
+            const subindiceStr = item.subindice ? String(item.subindice) : 'B';
+            const esHijo = (item.menu === '1' && indiceStr !== subindiceStr);
+
             return {
                 codigo: item.codigo, 
                 nombre: item.nombre, 
@@ -379,20 +379,19 @@
                 nota: item.nota || '',
                 cuenta: item.cuenta,
                 indice: item.indice,
-                subindice: item.subindice, // Campo para identificar unívocamente una línea
-                menu: item.menu || '0',    // Flag '1' si es parte de un menú
-                es_hijo: esHijo
+                subindice: item.subindice,
+                menu: item.menu || '0',
+                es_hijo: esHijo,
+                frontend_group_id: null
             };
         });
         
-        let modalNotaObj;
-        let modalCubiertosObj;
-        let modalMoverObj;
-        let modalVariedadesObj;
-        let modalArmarMenuObj;
+        let modalNotaObj, modalCubiertosObj, modalMoverObj, modalVariedadesObj, modalArmarMenuObj;
         let searchTimeout;
         let valorCubiertos = "";
-        let menuPadreEditando = null; // Variable global para modo edición de menú
+        let menuPadreEditando = null; 
+        let productoPendiente = null;
+        let menuArmablePendiente = null;
 
         document.addEventListener("DOMContentLoaded", function() { 
             modalNotaObj = new bootstrap.Modal(document.getElementById('modalNota'));
@@ -412,8 +411,7 @@
             renderizarTicket(); 
         });
 
-        // --- LÓGICA DE BÚSQUEDA DE PRODUCTOS ---
-
+        // --- LÓGICA DE BÚSQUEDA ---
         function handleSearchInput() {
             clearTimeout(searchTimeout);
             const searchTerm = this.value.trim();
@@ -422,11 +420,8 @@
             clearBtn.style.display = searchTerm.length > 0 ? 'block' : 'none';
 
             if (searchTerm.length >= 2) {
-                searchTimeout = setTimeout(() => {
-                    performSearch(searchTerm);
-                }, 300); // Retraso de 300ms (debounce)
+                searchTimeout = setTimeout(() => performSearch(searchTerm), 300);
             } else {
-                // Si el texto se borra o es muy corto, volvemos a la vista de familias
                 if (document.getElementById('lbl-ruta-menu').innerText.startsWith('Resultados para:')) {
                     cambiarNivel('familias', 'FAMILIAS');
                 }
@@ -462,10 +457,11 @@
         function resetSearchView() {
             const searchInput = document.getElementById('input-buscar-producto');
             searchInput.value = '';
-            searchInput.dispatchEvent(new Event('input')); // Dispara el evento para limpiar la vista
+            searchInput.dispatchEvent(new Event('input')); 
             searchInput.focus();
         }
 
+        // --- NAVEGACIÓN CATÁLOGO ---
         function cargarGrupos(punto, clase, nombreFamilia) {
             claseActiva = clase; 
             nombreFamiliaActiva = nombreFamilia;
@@ -525,10 +521,9 @@
         function subirNivel() {
             const rutaMenu = document.getElementById('lbl-ruta-menu').innerText;
             if (nivelActual === 'productos') {
-                // Si estamos en una vista de búsqueda, "volver" limpia la búsqueda.
                 if (rutaMenu.startsWith('Resultados para:')) {
                     resetSearchView();
-                } else { // Si no, es navegación normal del catálogo.
+                } else { 
                     cambiarNivel('grupos', nombreFamiliaActiva);
                 }
             } else if (nivelActual === 'grupos') {
@@ -545,6 +540,7 @@
             }
         }
 
+        // --- LÓGICA DE TICKET Y CUENTAS ---
         function dibujarTabsCuentas() {
             let contenedor = document.getElementById('tabs-cuentas');
             contenedor.innerHTML = '';
@@ -553,7 +549,6 @@
                 let isActive = (cta === cuentaVisible) ? 'btn-primary' : 'btn-outline-primary';
                 contenedor.innerHTML += `<button class="btn ${isActive} fw-bold px-4 rounded-pill" onclick="cambiarCuentaVisible('${cta}')">Cuenta ${cta}</button>`;
             });
-            
             contenedor.innerHTML += `<button class="btn btn-success fw-bold rounded-pill px-3" onclick="crearCuentaExtra()" title="Crear Cuenta Extra"><i class="fa-solid fa-plus"></i></button>`;
         }
 
@@ -568,7 +563,6 @@
                 alert("Debe cargar al menos un producto en la cuenta actual antes de crear sub-cuentas.");
                 return;
             }
-
             fetch('/pos/api/ticket/cuenta_extra/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
@@ -589,38 +583,29 @@
             let totalCuentaActiva = 0;
 
             comanda.forEach((item, index) => {
-                // FILTRO: Solo mostramos los productos que pertenecen a la pestaña actual
                 if (item.cuenta !== cuentaVisible) return;
         
                 totalCuentaActiva += (item.precio * item.cantidad);
                 const subtotalLinea = item.precio * item.cantidad;
         
-                // Botón para mover producto entre cuentas (solo para padres comandados)
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
                     ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
-                // 2. Botón '+' para agregar opciones a un menú existente
-                // Se muestra si es un menú padre ('menu' === '1' y no es hijo) y ya fue comandado.
                 const btnCompletarMenu = (item.menu === '1' && !item.es_hijo && item.estado === 'guardado')
                     ? `<button class="btn btn-success text-white btn-accion-linea ms-1" onclick="completarMenuExistente(${index})" title="Agregar opciones al menú"><i class="fa-solid fa-plus"></i></button>`
                     : '';
 
                 let iconosHtml = '';
                 if (item.estado === 'guardado') {
-                    // Ítems comandados:
                     if (!item.es_hijo) {
-                        // Si es un padre, muestra ícono de comandado, mover y completar menú.
                         iconosHtml = `<span class="text-success fs-5" title="Comandado"><i class="fa-solid fa-print"></i></span>${btnMover}${btnCompletarMenu}`;
                     }
-                    // Los hijos comandados no muestran acciones.
                 } else {
-                    // Ítems nuevos (no comandados):
                     iconosHtml = `
                         <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
                         <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
                 }
         
-                // --- PATRÓN SEGURO ANTI-XSS ---
                 const tr = document.createElement('tr');
         
                 const tdCant = document.createElement('td');
@@ -628,23 +613,21 @@
                 tdCant.textContent = item.cantidad;
         
                 const tdProd = document.createElement('td');
-                tdProd.textContent = item.nombre; // textContent neutraliza HTML y previene XSS
+                tdProd.textContent = item.nombre; 
         
                 const tdPrecio = document.createElement('td');
                 tdPrecio.className = 'text-end';
                 tdPrecio.textContent = `$${subtotalLinea.toFixed(0)}`;
                 
-                // Si es un hijo, agregar un ícono de indentación visual.
                 if (item.es_hijo) {
                     tdProd.innerHTML = `<i class="fa-solid fa-turn-up fa-rotate-90 me-1 text-muted"></i> ` + tdProd.innerHTML;
                 }
 
-                // Si tiene una nota, la muestra debajo del nombre.
                 if (item.nota) {
                     const noteElement = document.createElement('small');
                     noteElement.className = 'text-warning fw-bold d-block';
                     noteElement.innerHTML = `<i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i> ` + item.nota;
-                    tdProd.appendChild(document.createElement('br')); // Separar el nombre de la nota
+                    tdProd.appendChild(document.createElement('br')); 
                     tdProd.appendChild(noteElement);
                 }
 
@@ -652,13 +635,14 @@
                 tdAcciones.className = 'text-center text-nowrap';
                 tdAcciones.innerHTML = iconosHtml;
 
-                tr.append(tdCant, tdProd, tdPrecio, tdAcciones); // El orden de las celdas
+                tr.append(tdCant, tdProd, tdPrecio, tdAcciones); 
                 tbody.appendChild(tr);
             });
             
             document.getElementById('lbl-total').innerText = '$ ' + totalCuentaActiva.toFixed(0);
         }
 
+        // --- TRASPASOS Y BORRADO ---
         function abrirModalMover(index) {
             let item = comanda[index];
             document.getElementById('mover-item-index').value = index;
@@ -672,7 +656,6 @@
                     btnContainer.innerHTML += `<button class="btn btn-outline-info fw-bold py-2" onclick="confirmarMover('${cta}')">A Cuenta ${cta}</button>`;
                 }
             });
-            
             modalMoverObj.show();
         }
 
@@ -681,8 +664,6 @@
             const itemPadre = comanda[index];
             const indiceGrupo = itemPadre.indice;
 
-            // CORRECCIÓN 2: Se envía solo el 'indice' del grupo. El backend se encarga
-            // de mover todos los productos (padre e hijos) que compartan ese 'indice'.
             fetch('/pos/api/ticket/mover/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
@@ -693,49 +674,73 @@
                 })
             });
 
-            // Se actualiza la 'cuenta' de todos los productos del grupo en el frontend
-            // para que la vista se refresque correctamente.
             comanda.forEach(item => {
-                if (item.indice === indiceGrupo) {
-                    item.cuenta = cuentaDestino;
-                }
+                if (item.indice === indiceGrupo) item.cuenta = cuentaDestino;
             });
-
-            // Se cierra el modal y se refresca el ticket.
             modalMoverObj.hide();
             renderizarTicket();
         }
 
-        let productoPendiente = null;
+        function borrarDelTicket(index) {
+            const itemSeleccionado = comanda[index];
+            if (itemSeleccionado.estado !== 'nuevo') {
+                alert("No se pueden borrar productos que ya han sido comandados.");
+                return;
+            }
 
-        // Variable para gestionar el estado del menú que se está armando en el modal
-        let menuArmablePendiente = null;
+            let itemsParaBorrar = [];
 
+            if (!itemSeleccionado.es_hijo) {
+                const idGrupo = itemSeleccionado.indice || itemSeleccionado.frontend_group_id;
+                if (idGrupo && itemSeleccionado.menu === '1') {
+                    itemsParaBorrar = comanda.filter(item => 
+                        (item.indice && item.indice === idGrupo) || 
+                        (item.frontend_group_id && item.frontend_group_id === idGrupo)
+                    );
+                } else {
+                    itemsParaBorrar.push(itemSeleccionado);
+                }
+            } else {
+                alert("Las opciones de un menú no se pueden borrar individualmente. Debe borrar el menú completo.");
+                return;
+            }
+
+            itemsParaBorrar.forEach(item => {
+                fetch('/pos/api/ticket/borrar/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify({
+                        folio: '{{ folio }}', producto: item.codigo, clase: item.clase,
+                        grupo: item.grupo, cuenta: item.cuenta, nota: item.nota
+                    })
+                });
+            });
+
+            const setParaBorrar = new Set(itemsParaBorrar);
+            comanda = comanda.filter(item => !setParaBorrar.has(item));
+            renderizarTicket();
+        }
+
+        // --- FLUJO DE AGREGAR AL TICKET (Normal y Variedades) ---
         function agregarAlTicket(codigo, nombre, precio, clase, grupo, es_menu = false) {
-            // 1. Rescatamos la cantidad multiplicadora
             let cantAUsar = multiplicadorActivo;
             multiplicadorActivo = 1;
             document.getElementById('txt-multiplicador').innerText = '1';
             document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
 
-            // 2. Guardamos el producto temporalmente para usarlo después
             productoPendiente = { codigo, nombre, precio, clase, grupo, cantidad: cantAUsar, es_menu };
 
-            // 3. Lógica de bifurcación: ¿Es un menú o un producto normal?
             if (es_menu) {
                 fetch(`/pos/api/menu/opciones/${clase}/${grupo}/${codigo}/`)
                 .then(res => res.json())
                 .then(data => {
-                    if (data.sin_opciones) {
-                        // Es un menú pero sin opciones configuradas, se trata como producto normal.
+                    if (data.sin_opciones || Object.keys(data.opciones || {}).length === 0) {
                         consultarYProcesarVariedades();
                     } else {
-                        // Tiene opciones, abrimos el modal para armar el menú.
                         abrirModalArmarMenu(productoPendiente, data.opciones);
                     }
-                });
+                }).catch(() => consultarYProcesarVariedades());
             } else {
-                // Es un producto normal, seguimos con la lógica de variedades.
                 consultarYProcesarVariedades();
             }
         }
@@ -750,15 +755,12 @@
                 if (data.variedades && data.variedades.length > 0) {
                     abrirModalVariedades(nombre, data.variedades);
                 } else {
-                    // No tiene variedades, pasa directo a agregarse al ticket.
                     procesarAgregadoTicket('');
                 }
             });
         }
 
-        function cancelarVariedad() {
-            productoPendiente = null;
-        }
+        function cancelarVariedad() { productoPendiente = null; }
 
         function abrirModalVariedades(nombreProducto, variedades) {
             document.getElementById('lbl-producto-variedad').innerText = nombreProducto;
@@ -781,7 +783,6 @@
         function procesarAgregadoTicket(nota) {
             if (!productoPendiente) return;
 
-            // Buscamos si ya existe en pantalla. IMPORTANTE: Validamos que la nota también sea igual.
             let itemExistente = comanda.find(item => 
                 item.codigo === productoPendiente.codigo && 
                 item.clase === productoPendiente.clase && 
@@ -803,78 +804,28 @@
                     grupo: productoPendiente.grupo, 
                     estado: 'nuevo', 
                     nota: nota, 
-                    cuenta: cuentaVisible
+                    cuenta: cuentaVisible,
+                    menu: '0',
+                    es_hijo: false
                 });
             }
             renderizarTicket();
 
-            // Enviamos todo a Django, incluyendo la Nota
             fetch('/pos/api/ticket/agregar/', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                 body: JSON.stringify({
-                    folio: '{{ folio }}', 
-                    punto: '{{ punto }}', 
-                    clase: productoPendiente.clase, 
-                    grupo: productoPendiente.grupo, 
-                    producto: productoPendiente.codigo, 
-                    precio: productoPendiente.precio, 
-                    cantidad: productoPendiente.cantidad,
-                    cuenta: cuentaVisible,
-                    nota: nota
+                    folio: '{{ folio }}', punto: '{{ punto }}', clase: productoPendiente.clase, 
+                    grupo: productoPendiente.grupo, producto: productoPendiente.codigo, 
+                    precio: productoPendiente.precio, cantidad: productoPendiente.cantidad,
+                    cuenta: cuentaVisible, nota: nota
                 })
             });
 
-            productoPendiente = null; // Limpiamos la memoria
+            productoPendiente = null;
         }
 
-        function borrarDelTicket(index) {
-            const itemSeleccionado = comanda[index];
-            if (itemSeleccionado.estado !== 'nuevo') {
-                alert("No se pueden borrar productos que ya han sido comandados.");
-                return;
-            }
-
-            let itemsParaBorrar = [];
-
-            // CORRECCIÓN 3: Lógica para agrupar padre e hijos para el borrado.
-            if (!itemSeleccionado.es_hijo) {
-                // Es un producto padre (o un producto individual).
-                const idGrupo = itemSeleccionado.indice || itemSeleccionado.frontend_group_id;
-                if (idGrupo) {
-                    // Si tiene un 'indice' o 'frontend_group_id', es un menú. Se busca el grupo completo.
-                    itemsParaBorrar = comanda.filter(item => 
-                        (item.indice && item.indice === idGrupo) || 
-                        (item.frontend_group_id && item.frontend_group_id === idGrupo)
-                    );
-                } else {
-                    // Es un producto individual sin grupo. Solo se borra a sí mismo.
-                    itemsParaBorrar.push(itemSeleccionado);
-                }
-            } else {
-                // Es un producto hijo. No se permite borrar hijos individualmente.
-                alert("Las opciones de un menú no se pueden borrar individualmente. Debe borrar el menú completo.");
-                return;
-            }
-
-            // Enviamos las peticiones de borrado al backend por cada item.
-            itemsParaBorrar.forEach(item => {
-                fetch('/pos/api/ticket/borrar/', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                    body: JSON.stringify({
-                        folio: '{{ folio }}', producto: item.codigo, clase: item.clase,
-                        grupo: item.grupo, cuenta: item.cuenta, nota: item.nota
-                    })
-                });
-            });
-
-            // Actualizamos el array 'comanda' del frontend, eliminando los items.
-            const setParaBorrar = new Set(itemsParaBorrar);
-            comanda = comanda.filter(item => !setParaBorrar.has(item));
-            renderizarTicket();
-        }
-
+        // --- NOTAS Y CUBIERTOS ---
         function abrirNota(index) {
             document.getElementById('nota-item-index').value = index;
             document.getElementById('txt-nota').value = comanda[index].nota;
@@ -909,8 +860,7 @@
 
         function confirmarCubiertos() {
             if (valorCubiertos === "" || parseInt(valorCubiertos) === 0) {
-                alert("Debe ingresar al menos 1 cubierto.");
-                return;
+                alert("Debe ingresar al menos 1 cubierto."); return;
             }
             let nuevaCantidad = parseInt(valorCubiertos);
             
@@ -926,9 +876,7 @@
             });
         }
 
-        // --- LÓGICA PARA MENÚS ARMABLES ---
-
-        // 4. Lógica para completar un menú existente
+        // --- LÓGICA DE MENÚS ARMABLES ---
         function completarMenuExistente(index) {
             menuPadreEditando = comanda[index];
             const { clase, codigo, grupo } = menuPadreEditando;
@@ -938,9 +886,8 @@
                 .then(data => {
                     if (data.sin_opciones) {
                         alert("Este menú no tiene opciones configurables.");
-                        menuPadreEditando = null; // Resetear
+                        menuPadreEditando = null; 
                     } else {
-                        // Abrir el modal en modo edición
                         abrirModalArmarMenu(menuPadreEditando, data.opciones);
                     }
                 });
@@ -949,18 +896,15 @@
         function abrirModalArmarMenu(menuPadre, opciones) {
             const esEdicion = !!menuPadreEditando;
 
-            // 1. Guardar estado del menú que se está armando
             menuArmablePendiente = {
                 productoPadre: menuPadre,
                 opcionesDisponibles: opciones,
                 selecciones: {}
             };
 
-            // 2. Actualizar UI del modal
             document.getElementById('nombre-menu-armable').innerText = menuPadre.nombre;
-
             const accordionContainer = document.getElementById('accordion-opciones-menu');
-            accordionContainer.innerHTML = ''; // Limpiar contenido anterior
+            accordionContainer.innerHTML = ''; 
 
             const categorias = Object.keys(opciones);
 
@@ -970,7 +914,6 @@
                 
                 menuArmablePendiente.selecciones[categoria] = {};
 
-                // Calcular cuántas opciones ya existen si estamos en modo edición
                 let cantidadYaIngresada = 0;
                 if (esEdicion) {
                     const hijos = comanda.filter(item => item.indice === menuPadreEditando.subindice);
@@ -1002,7 +945,6 @@
                 });
                 opcionesHtml += '</div>';
 
-                // Si ya no faltan opciones para esta categoría, se muestra como completa y deshabilitada.
                 if (cantidadFaltante <= 0) {
                     accordionContainer.innerHTML += `
                         <div class="accordion-item">
@@ -1035,7 +977,6 @@
 
         function sumarOpcionMenu(categoria, opcionId, cantidadMaximaCategoria) {
             const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
-            
             const totalActual = Object.values(seleccionesCategoria).reduce((sum, val) => sum + val, 0);
 
             if (totalActual < cantidadMaximaCategoria) {
@@ -1048,7 +989,7 @@
             const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
             if (seleccionesCategoria[opcionId] > 0) {
                 seleccionesCategoria[opcionId]--;
-                // Re-calculamos la cantidad máxima para la UI
+                
                 const categoriaId = categoria.replace(/\s+/g, '-');
                 const contadorBadge = document.getElementById(`contador-cat-${categoriaId}`);
                 const cantidadMaximaCategoria = contadorBadge ? parseInt(contadorBadge.innerText.split('/')[1].trim()) : 0;
@@ -1065,40 +1006,40 @@
             const totalCategoria = Object.values(seleccionesCategoria).reduce((sum, val) => sum + val, 0);
             const categoriaId = categoria.replace(/\s+/g, '-');
             const contadorBadge = document.getElementById(`contador-cat-${categoriaId}`);
-            contadorBadge.innerText = `${totalCategoria} / ${cantidadMaxima}`;
-
-            const collapseContainer = document.getElementById(`collapse-${categoriaId}`);
-            const plusButtons = collapseContainer.querySelectorAll('button[onclick^="sumarOpcionMenu"]');
-            
-            if (totalCategoria >= cantidadMaximaCategoria) {
-                plusButtons.forEach(btn => btn.disabled = true);
-                contadorBadge.classList.replace('bg-secondary', 'bg-success');
-            } else {
-                plusButtons.forEach(btn => btn.disabled = false);
-                contadorBadge.classList.replace('bg-success', 'bg-secondary');
+            if(contadorBadge) {
+                contadorBadge.innerText = `${totalCategoria} / ${cantidadMaximaCategoria}`;
             }
 
-            // 4. Validar si el menú completo está listo
+            const collapseContainer = document.getElementById(`collapse-${categoriaId}`);
+            if(collapseContainer) {
+                const plusButtons = collapseContainer.querySelectorAll('button[onclick^="sumarOpcionMenu"]');
+                if (totalCategoria >= cantidadMaximaCategoria) {
+                    plusButtons.forEach(btn => btn.disabled = true);
+                    if(contadorBadge) contadorBadge.classList.replace('bg-secondary', 'bg-success');
+                } else {
+                    plusButtons.forEach(btn => btn.disabled = false);
+                    if(contadorBadge) contadorBadge.classList.replace('bg-success', 'bg-secondary');
+                }
+            }
+
             validarSeleccionMenuCompleta();
         }
 
         function validarSeleccionMenuCompleta() {
-            // 3. Flexibilidad del Modal: Se habilita si hay al menos 1 opción seleccionada.
             if (!menuArmablePendiente) return;
-
             let totalSeleccionado = 0;
             for (const categoria in menuArmablePendiente.selecciones) {
                 totalSeleccionado += Object.values(menuArmablePendiente.selecciones[categoria]).reduce((sum, val) => sum + val, 0);
             }
-
+            // Habilita el botón si se ha seleccionado al menos 1 opción en total
             document.getElementById('btn-confirmar-menu-armable').disabled = (totalSeleccionado === 0);
         }
 
         function confirmarMenuArmable() {
+            if (!menuArmablePendiente) return;
             const { productoPadre, selecciones, opcionesDisponibles } = menuArmablePendiente;
             const esEdicion = !!menuPadreEditando;
         
-            // Preparar el array de opciones (hijos) con sus cantidades
             const opcionesNuevas = [];
             for (const categoria in selecciones) {
                 for (const opcionId in selecciones[categoria]) {
@@ -1113,36 +1054,36 @@
                             opcionesNuevas.push({
                                 codigo: opcionDataOriginal.producto,
                                 nombre: opcionDataOriginal.nproducto,
-                                precio: 0, // Las opciones de menú siempre tienen precio 0
+                                precio: 0, 
                                 cantidad: cantidadSeleccionada,
                                 clase: opcionDataOriginal.clase,
                                 grupo: opcionDataOriginal.grupo,
                                 estado: 'nuevo', nota: '', cuenta: cuentaVisible,
-                                es_hijo: true,
-                                // Enlazar al padre: si es edición, usamos el 'subindice' del padre.
+                                es_hijo: true, menu: '1',
                                 indice: esEdicion ? menuPadreEditando.subindice : null,
-                                subindice: null // Será asignado por el backend
+                                subindice: null,
+                                frontend_group_id: null
                             });
                         }
                     }
                 }
             }
         
-            // 5. Guardado inteligente
             if (esEdicion) {
-                // MODO EDICIÓN: Solo se envían las nuevas opciones al backend.
+                if (opcionesNuevas.length === 0) return;
+
                 const payload = {
                     folio: '{{ folio }}',
                     punto: '{{ punto }}',
-                    cuenta: menuPadreEditando.cuenta, // Usar la cuenta original del padre
-                    indice_padre: menuPadreEditando.subindice, // El SubIndice del padre es el Indice de los hijos
+                    cuenta: menuPadreEditando.cuenta, 
+                    indice_padre: menuPadreEditando.subindice, 
                     opciones: opcionesNuevas.map(h => ({
                         producto: h.codigo, clase: h.clase, grupo: h.grupo,
                         cantidad: h.cantidad, nota: h.nota
                     }))
                 };
 
-                fetch('/pos/api/menu/agregar_opciones/', {
+                fetch('/pos/api/ticket/agregar_opciones_menu/', { // Asegurarse que la ruta de views.py coincida
                     method: 'POST',
                     headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
                     body: JSON.stringify(payload)
@@ -1151,7 +1092,6 @@
                 comanda.push(...opcionesNuevas);
 
             } else {
-                // MODO CREACIÓN: Se envía el paquete completo (padre + hijos).
                 const frontendGroupId = Date.now();
                 const itemPadre = {
                     ...productoPadre,
@@ -1183,13 +1123,13 @@
         
             modalArmarMenuObj.hide();
             menuArmablePendiente = null;
-            menuPadreEditando = null; // Limpiar el modo edición
+            menuPadreEditando = null; 
             productoPendiente = null;
             renderizarTicket();
         }
 
+        // --- CIERRE ---
         function accionarCierre() {
-            // Tanto 'Confirmar' como 'Regresar' ahora comandan los productos nuevos antes de salir.
             let itemsNuevos = comanda.filter(i => i.estado === 'nuevo');
             if (itemsNuevos.length > 0) {
                 fetch('/pos/api/ticket/comandar/', {
@@ -1198,7 +1138,6 @@
                     body: JSON.stringify({folio: '{{ folio }}'})
                 }).then(() => window.location.href = "{% url 'seleccion_mesas' %}");
             } else {
-                // Si no hay nada nuevo, simplemente regresa a la pantalla de mesas.
                 window.location.href = "{% url 'seleccion_mesas' %}";
             }
         }
