@@ -923,6 +923,66 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
                     opcion.get('nota', '')
                 ])
 
+@transaction.atomic
+def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_padre, opciones):
+    """
+    Agrega productos de opción (hijos) a un menú ya existente en la comanda.
+
+    Args:
+        folio (str): El folio de la mesa.
+        punto (str): El código del punto de venta.
+        cuenta (str): La sub-cuenta a la que pertenecen las opciones.
+        usuario_id (int): El ID del usuario que agrega las opciones.
+        indice_padre (int): El SubIndice del producto menú padre al que se enlazarán estas opciones.
+        opciones (list[dict]): Lista de diccionarios, cada uno representando una opción a agregar.
+    """
+    datos_turno = obtener_turno_activo()
+    fecha_proceso = datos_turno['fecha']
+    turno_bd = datos_turno['turno_bd']
+    
+    with connection.cursor() as cursor:
+        # 1. Obtener datos del padre (Mesa y claves del menú original) para los hijos.
+        cursor.execute("""
+            SELECT Mesa, mClase, mGrupo, mCodigo 
+            FROM Consumos 
+            WHERE SubIndice = %s AND Folio = %s
+        """, [indice_padre, folio])
+        
+        fila_padre = cursor.fetchone()
+        if not fila_padre:
+            raise ValueError(f"No se encontró el producto menú padre con Indice {indice_padre} para el folio {folio}.")
+
+        mesa = fila_padre[0]
+        clase_padre = fila_padre[1]
+        grupo_padre = fila_padre[2]
+        producto_padre_cod = fila_padre[3]
+
+        # 2. Preparar la consulta para insertar los hijos.
+        sql_insert_hijo = """
+            INSERT INTO Consumos (
+                Punto, Mesa, Grupo, Producto, Cantidad, Valor, sw, Tipo, Docto,
+                Status, Folio, Fecha, Turno, Clase, Comanda, Flag,
+                Cuenta, Id, mClase, mGrupo, mCodigo, Indice, Valorreal,
+                Menu, Hora, Nota, Pc, ValorUsd, ValorUsdReal
+            ) VALUES (
+                %s, %s, %s, %s, %s, 0, '', '', '',
+                '0', %s, %s, %s, %s, '', '0',
+                %s, %s, %s, %s, %s, %s, 0,
+                '1', CONVERT(varchar(5), GETDATE(), 108), %s, 'WEB_POS', 0, 0
+            )
+        """
+        
+        # 3. Iterar e insertar cada opción.
+        for opcion in opciones:
+            cursor.execute(sql_insert_hijo, [
+                punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'],
+                folio, fecha_proceso, turno_bd, opcion['clase'],
+                cuenta, usuario_id,
+                clase_padre, grupo_padre, producto_padre_cod, # m-fields apuntan al padre
+                indice_padre, # Indice del hijo es el SubIndice del padre
+                opcion.get('nota', '')
+            ])
+
 def borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota):
     """Elimina un producto de la comanda si aún no ha sido comandado.
 

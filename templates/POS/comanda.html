@@ -357,24 +357,33 @@
         }
         const csrftoken = getCookie('csrftoken');
 
+        // 1. Mapeo de datos desde el backend
         const consumosBD = JSON.parse(document.getElementById('consumos-data').textContent);
         let cuentasActivas = JSON.parse(document.getElementById('cuentas-data').textContent); // ['1', '2', ...]
         
         let cuentaVisible = cuentasActivas[0] || '1';
         
-        let comanda = consumosBD.map(item => ({
-            codigo: item.codigo, 
-            nombre: item.nombre, 
-            precio: parseFloat(item.precio),
-            cantidad: parseFloat(item.cantidad), 
-            clase: item.clase, 
-            grupo: item.grupo, 
-            estado: item.flag === '1' ? 'guardado' : 'nuevo', // 'guardado' = comandado, 'nuevo' = sin comandar
-            nota: item.nota || '', // Nota de cocina
-            cuenta: item.cuenta, // Sub-cuenta a la que pertenece
-            indice: item.indice, // ID del grupo de productos (padre+hijos)
-            es_hijo: (item.nota || '').startsWith('>') // Para renderizar hijos de menús ya guardados
-        }));
+        // Se capturan los campos adicionales 'subindice' y 'menu' para la nueva lógica.
+        // Se asume que el backend (obtener_consumos_mesa) ya los está proveyendo.
+        let comanda = consumosBD.map(item => {
+            // Un producto es hijo si su 'indice' (ID de grupo) es distinto a su 'subindice' (ID único).
+            const esHijo = item.indice !== item.subindice;
+            return {
+                codigo: item.codigo, 
+                nombre: item.nombre, 
+                precio: parseFloat(item.precio),
+                cantidad: parseFloat(item.cantidad), 
+                clase: item.clase, 
+                grupo: item.grupo, 
+                estado: item.flag === '1' ? 'guardado' : 'nuevo',
+                nota: item.nota || '',
+                cuenta: item.cuenta,
+                indice: item.indice,
+                subindice: item.subindice, // Campo para identificar unívocamente una línea
+                menu: item.menu || '0',    // Flag '1' si es parte de un menú
+                es_hijo: esHijo
+            };
+        });
         
         let modalNotaObj;
         let modalCubiertosObj;
@@ -383,6 +392,7 @@
         let modalArmarMenuObj;
         let searchTimeout;
         let valorCubiertos = "";
+        let menuPadreEditando = null; // Variable global para modo edición de menú
 
         document.addEventListener("DOMContentLoaded", function() { 
             modalNotaObj = new bootstrap.Modal(document.getElementById('modalNota'));
@@ -583,24 +593,31 @@
                 if (item.cuenta !== cuentaVisible) return;
         
                 totalCuentaActiva += (item.precio * item.cantidad);
-                let subtotalLinea = item.precio * item.cantidad;
+                const subtotalLinea = item.precio * item.cantidad;
         
-                // CORRECCIÓN 1: El botón de mover (btnMover) solo se muestra en productos padre
-                // ('!item.es_hijo') que ya han sido comandados ('estado === guardado').
+                // Botón para mover producto entre cuentas (solo para padres comandados)
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
                     ? `<button class="btn btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
+                // 2. Botón '+' para agregar opciones a un menú existente
+                // Se muestra si es un menú padre ('menu' === '1' y no es hijo) y ya fue comandado.
+                const btnCompletarMenu = (item.menu === '1' && !item.es_hijo && item.estado === 'guardado')
+                    ? `<button class="btn btn-success text-white btn-accion-linea ms-1" onclick="completarMenuExistente(${index})" title="Agregar opciones al menú"><i class="fa-solid fa-plus"></i></button>`
+                    : '';
+
                 let iconosHtml = '';
                 if (item.estado === 'guardado') {
-                    // Si es un producto ya comandado y NO es un hijo, muestra el ícono de comandado y el botón de mover.
+                    // Ítems comandados:
                     if (!item.es_hijo) {
-                        iconosHtml = `<span class="text-success fs-5" title="Comandado"><i class="fa-solid fa-print"></i></span>${btnMover}`;
-                    } // Los hijos comandados no muestran nada.
+                        // Si es un padre, muestra ícono de comandado, mover y completar menú.
+                        iconosHtml = `<span class="text-success fs-5" title="Comandado"><i class="fa-solid fa-print"></i></span>${btnMover}${btnCompletarMenu}`;
+                    }
+                    // Los hijos comandados no muestran acciones.
                 } else {
-                    // Producto nuevo (sin comandar): Muestra Lápiz (Nota) y Basurero. NO se puede mover aún.
+                    // Ítems nuevos (no comandados):
                     iconosHtml = `
-                       <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
-                       <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
+                        <button class="btn btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
+                        <button class="btn btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
                 }
         
                 // --- PATRÓN SEGURO ANTI-XSS ---
@@ -911,17 +928,36 @@
 
         // --- LÓGICA PARA MENÚS ARMABLES ---
 
+        // 4. Lógica para completar un menú existente
+        function completarMenuExistente(index) {
+            menuPadreEditando = comanda[index];
+            const { clase, codigo, grupo } = menuPadreEditando;
+
+            fetch(`/pos/api/menu/opciones/${clase}/${grupo}/${codigo}/`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.sin_opciones) {
+                        alert("Este menú no tiene opciones configurables.");
+                        menuPadreEditando = null; // Resetear
+                    } else {
+                        // Abrir el modal en modo edición
+                        abrirModalArmarMenu(menuPadreEditando, data.opciones);
+                    }
+                });
+        }
+
         function abrirModalArmarMenu(menuPadre, opciones) {
+            const esEdicion = !!menuPadreEditando;
+
             // 1. Guardar estado del menú que se está armando
             menuArmablePendiente = {
                 productoPadre: menuPadre,
                 opcionesDisponibles: opciones,
-                selecciones: {} // { Categoria: { opcionId: cantidad, ... }, ... }
+                selecciones: {}
             };
 
             // 2. Actualizar UI del modal
             document.getElementById('nombre-menu-armable').innerText = menuPadre.nombre;
-            document.getElementById('cantidad-menu-armable').innerText = menuPadre.cantidad;
 
             const accordionContainer = document.getElementById('accordion-opciones-menu');
             accordionContainer.innerHTML = ''; // Limpiar contenido anterior
@@ -932,13 +968,25 @@
                 const categoriaId = categoria.replace(/\s+/g, '-');
                 const opcionesCategoria = opciones[categoria];
                 
-                // Inicializar selecciones para esta categoría
                 menuArmablePendiente.selecciones[categoria] = {};
+
+                // Calcular cuántas opciones ya existen si estamos en modo edición
+                let cantidadYaIngresada = 0;
+                if (esEdicion) {
+                    const hijos = comanda.filter(item => item.indice === menuPadreEditando.subindice);
+                    hijos.forEach(hijo => {
+                        if (opcionesCategoria.some(opt => opt.producto === hijo.codigo && opt.clase === hijo.clase && opt.grupo === hijo.grupo)) {
+                            cantidadYaIngresada += hijo.cantidad;
+                        }
+                    });
+                }
+                const cantidadFaltante = menuPadre.cantidad - cantidadYaIngresada;
+
+                document.getElementById('cantidad-menu-armable').innerText = esEdicion ? `hasta ${cantidadFaltante}` : menuPadre.cantidad;
 
                 let opcionesHtml = '<div class="list-group list-group-flush">';
                 opcionesCategoria.forEach(opcion => {
                     const opcionId = `${opcion.clase}-${opcion.grupo}-${opcion.producto}`;
-                    // Inicializar contador para esta opción
                     menuArmablePendiente.selecciones[categoria][opcionId] = 0;
 
                     opcionesHtml += `
@@ -947,43 +995,52 @@
                             <div class="input-group" style="width: 130px;">
                                 <button class="btn btn-outline-danger fw-bold" type="button" onclick="restarOpcionMenu('${categoria}', '${opcionId}')">-</button>
                                 <span class="form-control text-center fw-bold bg-light" id="qty-span-${opcionId}">0</span>
-                                <button class="btn btn-outline-success fw-bold" type="button" onclick="sumarOpcionMenu('${categoria}', '${opcionId}')">+</button>
+                                <button class="btn btn-outline-success fw-bold" type="button" onclick="sumarOpcionMenu('${categoria}', '${opcionId}', ${cantidadFaltante})">+</button>
                             </div>
                         </div>
                     `;
                 });
                 opcionesHtml += '</div>';
 
-                const accordionItemHtml = `
-                    <div class="accordion-item">
-                        <h2 class="accordion-header" id="heading-${categoriaId}">
-                            <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${categoriaId}" aria-expanded="${index === 0}">
-                                <span class="fw-bold">${categoria}</span>
-                                <span class="badge bg-secondary ms-auto me-2" id="contador-cat-${categoriaId}">0 / ${menuPadre.cantidad}</span>
-                            </button>
-                        </h2>
-                        <div id="collapse-${categoriaId}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" data-bs-parent="#accordion-opciones-menu">
-                            <div class="accordion-body p-0">${opcionesHtml}</div>
-                        </div>
-                    </div>
-                `;
-                accordionContainer.innerHTML += accordionItemHtml;
+                // Si ya no faltan opciones para esta categoría, se muestra como completa y deshabilitada.
+                if (cantidadFaltante <= 0) {
+                    accordionContainer.innerHTML += `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" disabled>
+                                    <span class="fw-bold text-muted">${categoria}</span>
+                                    <span class="badge bg-success ms-auto me-2"><i class="fa-solid fa-check me-1"></i> Completo</span>
+                                </button>
+                            </h2>
+                        </div>`;
+                } else {
+                    accordionContainer.innerHTML += `
+                        <div class="accordion-item">
+                            <h2 class="accordion-header" id="heading-${categoriaId}">
+                                <button class="accordion-button ${index !== 0 ? 'collapsed' : ''}" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-${categoriaId}" aria-expanded="${index === 0}">
+                                    <span class="fw-bold">${categoria}</span>
+                                    <span class="badge bg-secondary ms-auto me-2" id="contador-cat-${categoriaId}">0 / ${cantidadFaltante}</span>
+                                </button>
+                            </h2>
+                            <div id="collapse-${categoriaId}" class="accordion-collapse collapse ${index === 0 ? 'show' : ''}" data-bs-parent="#accordion-opciones-menu">
+                                <div class="accordion-body p-0">${opcionesHtml}</div>
+                            </div>
+                        </div>`;
+                }
             });
 
             document.getElementById('btn-confirmar-menu-armable').disabled = true;
             modalArmarMenuObj.show();
         }
 
-        function sumarOpcionMenu(categoria, opcionId) {
-            const cantidadMaxima = menuArmablePendiente.productoPadre.cantidad;
+        function sumarOpcionMenu(categoria, opcionId, cantidadMaximaCategoria) {
             const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
             
-            // Calcular total actual de la categoría
             const totalActual = Object.values(seleccionesCategoria).reduce((sum, val) => sum + val, 0);
 
-            if (totalActual < cantidadMaxima) {
+            if (totalActual < cantidadMaximaCategoria) {
                 seleccionesCategoria[opcionId]++;
-                actualizarUIOpcion(categoria, opcionId);
+                actualizarUIOpcion(categoria, opcionId, cantidadMaximaCategoria);
             }
         }
 
@@ -991,29 +1048,29 @@
             const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
             if (seleccionesCategoria[opcionId] > 0) {
                 seleccionesCategoria[opcionId]--;
-                actualizarUIOpcion(categoria, opcionId);
+                // Re-calculamos la cantidad máxima para la UI
+                const categoriaId = categoria.replace(/\s+/g, '-');
+                const contadorBadge = document.getElementById(`contador-cat-${categoriaId}`);
+                const cantidadMaximaCategoria = contadorBadge ? parseInt(contadorBadge.innerText.split('/')[1].trim()) : 0;
+                actualizarUIOpcion(categoria, opcionId, cantidadMaximaCategoria);
             }
         }
 
-        function actualizarUIOpcion(categoria, opcionId) {
-            const cantidadMaxima = menuArmablePendiente.productoPadre.cantidad;
+        function actualizarUIOpcion(categoria, opcionId, cantidadMaximaCategoria) {
             const seleccionesCategoria = menuArmablePendiente.selecciones[categoria];
             const cantidadActualOpcion = seleccionesCategoria[opcionId];
             
-            // 1. Actualizar el span de la cantidad de la opción
             document.getElementById(`qty-span-${opcionId}`).innerText = cantidadActualOpcion;
 
-            // 2. Actualizar el contador de la categoría
             const totalCategoria = Object.values(seleccionesCategoria).reduce((sum, val) => sum + val, 0);
             const categoriaId = categoria.replace(/\s+/g, '-');
             const contadorBadge = document.getElementById(`contador-cat-${categoriaId}`);
             contadorBadge.innerText = `${totalCategoria} / ${cantidadMaxima}`;
 
-            // 3. Habilitar/deshabilitar botones (+) y actualizar color del badge
             const collapseContainer = document.getElementById(`collapse-${categoriaId}`);
             const plusButtons = collapseContainer.querySelectorAll('button[onclick^="sumarOpcionMenu"]');
             
-            if (totalCategoria >= cantidadMaxima) {
+            if (totalCategoria >= cantidadMaximaCategoria) {
                 plusButtons.forEach(btn => btn.disabled = true);
                 contadorBadge.classList.replace('bg-secondary', 'bg-success');
             } else {
@@ -1026,31 +1083,23 @@
         }
 
         function validarSeleccionMenuCompleta() {
-            const cantidadRequerida = menuArmablePendiente.productoPadre.cantidad;
-            const categorias = Object.keys(menuArmablePendiente.opcionesDisponibles);
-            
-            const todoCompleto = categorias.every(cat => {
-                const totalCategoria = Object.values(menuArmablePendiente.selecciones[cat]).reduce((sum, val) => sum + val, 0);
-                return totalCategoria === cantidadRequerida;
-            });
-            
-            document.getElementById('btn-confirmar-menu-armable').disabled = !todoCompleto;
+            // 3. Flexibilidad del Modal: Se habilita si hay al menos 1 opción seleccionada.
+            if (!menuArmablePendiente) return;
+
+            let totalSeleccionado = 0;
+            for (const categoria in menuArmablePendiente.selecciones) {
+                totalSeleccionado += Object.values(menuArmablePendiente.selecciones[categoria]).reduce((sum, val) => sum + val, 0);
+            }
+
+            document.getElementById('btn-confirmar-menu-armable').disabled = (totalSeleccionado === 0);
         }
 
         function confirmarMenuArmable() {
-            if (!menuArmablePendiente) return;
             const { productoPadre, selecciones, opcionesDisponibles } = menuArmablePendiente;
+            const esEdicion = !!menuPadreEditando;
         
-            // 1. Preparar el objeto del producto padre
-            const frontendGroupId = Date.now();
-            const itemPadre = {
-                ...productoPadre,
-                estado: 'nuevo', nota: '', cuenta: cuentaVisible,
-                es_hijo: false, frontend_group_id: frontendGroupId
-            };
-        
-            // 2. Preparar el array de opciones (hijos) con sus cantidades
-            const opcionesHijas = [];
+            // Preparar el array de opciones (hijos) con sus cantidades
+            const opcionesNuevas = [];
             for (const categoria in selecciones) {
                 for (const opcionId in selecciones[categoria]) {
                     const cantidadSeleccionada = selecciones[categoria][opcionId];
@@ -1061,47 +1110,80 @@
                         );
 
                         if (opcionDataOriginal) {
-                            opcionesHijas.push({
+                            opcionesNuevas.push({
                                 codigo: opcionDataOriginal.producto,
                                 nombre: opcionDataOriginal.nproducto,
-                                precio: 0, // Opciones de menú tienen precio 0
-                                cantidad: cantidadSeleccionada, // Usamos la cantidad seleccionada
+                                precio: 0, // Las opciones de menú siempre tienen precio 0
+                                cantidad: cantidadSeleccionada,
                                 clase: opcionDataOriginal.clase,
                                 grupo: opcionDataOriginal.grupo,
                                 estado: 'nuevo', nota: '', cuenta: cuentaVisible,
-                                es_hijo: true, frontend_group_id: frontendGroupId
+                                es_hijo: true,
+                                // Enlazar al padre: si es edición, usamos el 'subindice' del padre.
+                                indice: esEdicion ? menuPadreEditando.subindice : null,
+                                subindice: null // Será asignado por el backend
                             });
                         }
                     }
                 }
             }
         
-            // 3. Preparar el payload para el backend
-            const payload = {
-                folio: '{{ folio }}', punto: '{{ punto }}', cuenta: cuentaVisible,
-                producto_padre: {
-                    producto: itemPadre.codigo, clase: itemPadre.clase, grupo: itemPadre.grupo,
-                    precio: itemPadre.precio, cantidad: itemPadre.cantidad, nota: itemPadre.nota
-                },
-                opciones: opcionesHijas.map(h => ({
-                    producto: h.codigo, clase: h.clase, grupo: h.grupo,
-                    precio: h.precio, cantidad: h.cantidad, nota: h.nota
-                }))
-            };
+            // 5. Guardado inteligente
+            if (esEdicion) {
+                // MODO EDICIÓN: Solo se envían las nuevas opciones al backend.
+                const payload = {
+                    folio: '{{ folio }}',
+                    punto: '{{ punto }}',
+                    cuenta: menuPadreEditando.cuenta, // Usar la cuenta original del padre
+                    indice_padre: menuPadreEditando.subindice, // El SubIndice del padre es el Indice de los hijos
+                    opciones: opcionesNuevas.map(h => ({
+                        producto: h.codigo, clase: h.clase, grupo: h.grupo,
+                        cantidad: h.cantidad, nota: h.nota
+                    }))
+                };
+
+                fetch('/pos/api/menu/agregar_opciones/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify(payload)
+                });
+
+                comanda.push(...opcionesNuevas);
+
+            } else {
+                // MODO CREACIÓN: Se envía el paquete completo (padre + hijos).
+                const frontendGroupId = Date.now();
+                const itemPadre = {
+                    ...productoPadre,
+                    estado: 'nuevo', nota: '', cuenta: cuentaVisible,
+                    es_hijo: false, frontend_group_id: frontendGroupId, menu: '1'
+                };
+                opcionesNuevas.forEach(h => h.frontend_group_id = frontendGroupId);
+
+                const payload = {
+                    folio: '{{ folio }}', punto: '{{ punto }}', cuenta: cuentaVisible,
+                    producto_padre: {
+                        producto: itemPadre.codigo, clase: itemPadre.clase, grupo: itemPadre.grupo,
+                        precio: itemPadre.precio, cantidad: itemPadre.cantidad, nota: itemPadre.nota
+                    },
+                    opciones: opcionesNuevas.map(h => ({
+                        producto: h.codigo, clase: h.clase, grupo: h.grupo,
+                        precio: h.precio, cantidad: h.cantidad, nota: h.nota
+                    }))
+                };
+            
+                fetch('/pos/api/ticket/agregar/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                    body: JSON.stringify(payload)
+                });
+            
+                comanda.push(itemPadre, ...opcionesNuevas);
+            }
         
-            // 4. Enviar el paquete completo (padre + hijos) en un solo fetch
-            fetch('/pos/api/ticket/agregar/', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
-                body: JSON.stringify(payload)
-            });
-        
-            // 5. Agregar el padre y los hijos al array local 'comanda'
-            comanda.push(itemPadre, ...opcionesHijas);
-        
-            // 6. Limpiar y renderizar
             modalArmarMenuObj.hide();
             menuArmablePendiente = null;
+            menuPadreEditando = null; // Limpiar el modo edición
             productoPendiente = null;
             renderizarTicket();
         }

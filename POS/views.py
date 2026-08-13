@@ -242,6 +242,37 @@ def api_agregar_ticket(request):
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
+def api_agregar_opciones_menu(request):
+    """Agrega opciones de menú a un producto 'padre' ya existente en la comanda."""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            punto = data.get('punto')
+            cuenta = data.get('cuenta', '1')
+            indice_padre = data.get('indice_padre')
+            opciones = data.get('opciones', [])
+            usuario_id = request.session['usuario_activo']['id']
+
+            if not all([folio, punto, indice_padre, opciones]):
+                return JsonResponse({'status': 'error', 'message': 'Faltan datos requeridos (folio, punto, indice_padre, opciones).'}, status=400)
+
+            services.agregar_opciones_a_menu_existente(
+                folio=folio,
+                punto=punto,
+                cuenta=cuenta,
+                usuario_id=usuario_id,
+                indice_padre=indice_padre,
+                opciones=opciones
+            )
+            return JsonResponse({'status': 'ok'})
+        except ValueError as ve:
+            return JsonResponse({'status': 'error', 'message': str(ve)}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    return JsonResponse({'status': 'bad_request'}, status=400)
+
+@custom_login_required
 def api_crear_cuenta(request):
     """Llama al servicio para clonar la CtasMesas y retorna el nuevo número."""
     if request.method == 'POST':
