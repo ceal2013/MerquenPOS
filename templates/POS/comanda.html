@@ -595,7 +595,7 @@
         
                 // Botón para mover producto entre cuentas (solo para padres comandados)
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
-                    ? `<button class="btn btn-sm btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
+                    ? `<button class="btn btn-sm btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})" title="Mover a otra cuenta"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
                 // === LÓGICA DE BOTÓN [+] DINÁMICO ===
                 const esPadreMenu = (item.menu === '1' && !item.es_hijo);
