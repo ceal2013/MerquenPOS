@@ -1004,33 +1004,27 @@ def borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota):
         """
         cursor.execute(sql, [folio, producto, clase, grupo, cuenta, nota])
 
+def actualizar_nota_consumo(folio, producto, clase, grupo, cuenta, nota_antigua, nota_nueva):
+    """Actualiza la nota de un producto no comandado."""
+    with connection.cursor() as cursor:
+        sql = """
+            UPDATE Consumos 
+            SET Nota = %s 
+            WHERE Folio = %s AND Producto = %s AND Clase = %s AND Grupo = %s AND Cuenta = %s AND Nota = %s 
+              AND (Flag = '0' OR Flag IS NULL OR Flag = '')
+        """
+        cursor.execute(sql, [nota_nueva, folio, producto, clase, grupo, cuenta, nota_antigua])
+
 @transaction.atomic
 def comandar_ticket(folio):
     """Procesa el envío de productos a las áreas de preparación (cocina, bar, etc.).
-    Modificado para manejar la lógica de despacho de menús y sus opciones.
-
-    1. Selecciona todos los productos de un folio que no han sido comandados (`Flag='0'`).
-    2. Para cada producto, determina las áreas de despacho (ej. 'PCocina', 'PBar')
-       según los campos `Despacho` y `Despacho2` de la tabla `Productos`.
-    3. Inserta los productos en las tablas de despacho correspondientes para que
-       sean procesados por los sistemas de impresión.
-    4. Actualiza el `Flag` a '1' en `Consumos` para todos los productos procesados,
-       marcando que ya fueron enviados a preparación.
-
-    Args:
-        folio (str): El folio de la cuenta a comandar.
+    Rescata menús padres rezagados si se están agregando opciones nuevas a ellos.
     """
-    # Diccionario de destinos: Mapea el número de Despacho con la tabla real
     destinos_impresion = {
-        1: 'PCocina',
-        2: 'PBar',
-        3: 'PParrilla',
-        4: 'PReposteria',
-        5: 'PFrio'
+        1: 'PCocina', 2: 'PBar', 3: 'PParrilla', 4: 'PReposteria', 5: 'PFrio'
     }
 
     def parse_despacho(valor):
-        """Función interna para evitar errores si el Despacho viene vacío o con letras"""
         try:
             return int(valor)
         except (ValueError, TypeError):
@@ -1038,39 +1032,59 @@ def comandar_ticket(folio):
 
     with connection.cursor() as cursor:
         
-        # PASO 1: Obtener productos no comandados y cruzar con la tabla Productos
+        # PASO 1: Obtener productos no comandados (Nuevos)
         sql_nuevos = """
             SELECT 
                 c.Indice, c.SubIndice, c.Cantidad, c.Folio, c.Nota,
-                p.NProducto, p.Despacho, p.Despacho2
+                p.NProducto, p.Despacho, p.Despacho2, c.Menu
             FROM Consumos c
             JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
             WHERE c.Folio = %s AND (c.Flag = '0' OR c.Flag IS NULL OR c.Flag = '')
         """
         cursor.execute(sql_nuevos, [folio])
-        productos_a_despachar_tuples = cursor.fetchall()
+        nuevos = cursor.fetchall()
 
-        # Cláusula de guarda: Si no hay productos nuevos para comandar,
-        # no se hace nada y la función termina para evitar transacciones vacías.
-        if not productos_a_despachar_tuples:
+        if not nuevos:
             return
 
-        # PASO 2: Agrupar productos por 'Indice' para manejar menús y productos individuales.
+        # PASO 2: Rescatar "Padres Rezagados" que ya estaban comandados (Flag = '1')
+        # Buscamos si algún hijo nuevo pertenece a un padre antiguo
+        indices_nuevos = list(set([row[0] for row in nuevos if row[0] != row[1]])) 
+        
+        padres_rescatados = []
+        if indices_nuevos:
+            format_strings = ','.join(['%s'] * len(indices_nuevos))
+            sql_padres = f"""
+                SELECT 
+                    c.Indice, c.SubIndice, c.Cantidad, c.Folio, c.Nota,
+                    p.NProducto, p.Despacho, p.Despacho2, c.Menu
+                FROM Consumos c
+                JOIN Productos p ON c.Producto = p.Producto AND c.Clase = p.Clase AND c.Grupo = p.Grupo
+                WHERE c.Folio = %s AND c.Flag = '1' AND c.SubIndice IN ({format_strings})
+            """
+            cursor.execute(sql_padres, [folio] + indices_nuevos)
+            padres_rescatados = cursor.fetchall()
+
+        todos_los_productos = nuevos + padres_rescatados
+
+        # PASO 3: Agrupar e Insertar
         productos_por_indice = defaultdict(list)
-        for row in productos_a_despachar_tuples:
+        for row in todos_los_productos:
             indice = row[0]
             productos_por_indice[indice].append({
                 'indice': row[0], 'subindice': row[1], 'cantidad': row[2],
                 'folio': row[3], 'nota': row[4] if row[4] else '', 'nombre': row[5],
-                'despacho1_raw': row[6], 'despacho2_raw': row[7]
+                'despacho1_raw': row[6], 'despacho2_raw': row[7],
+                'menu': str(row[8]).strip() if row[8] else '0'
             })
 
-        # PASO 3: Preparar los datos para la inserción masiva según la nueva lógica.
         datos_para_impresion = {tabla: [] for tabla in destinos_impresion.values()}
 
         for indice, grupo_productos in productos_por_indice.items():
-            # CASO 1: Es un producto individual (no es un menú).
-            if len(grupo_productos) == 1:
+            es_grupo_menu = any(p['menu'] == '1' or p['indice'] != p['subindice'] for p in grupo_productos)
+
+            if not es_grupo_menu:
+                # Producto Simple Normal
                 producto = grupo_productos[0]
                 desp1 = parse_despacho(producto['despacho1_raw'])
                 desp2 = parse_despacho(producto['despacho2_raw'])
@@ -1079,36 +1093,42 @@ def comandar_ticket(folio):
                 if desp1 in destinos_impresion: tablas_a_insertar.add(destinos_impresion[desp1])
                 if desp2 in destinos_impresion: tablas_a_insertar.add(destinos_impresion[desp2])
                 
-                # Para productos individuales, el campo 'menu' en la comanda de preparación es '0'.
                 datos_fila = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], '0', producto['nota'])
                 for tabla in tablas_a_insertar:
                     datos_para_impresion[tabla].append(datos_fila)
             
-            # CASO 2: Es un menú con hijos.
             else:
+                # Menú Armable (Padre e Hijos)
                 padre = None
                 destinos_del_grupo = set()
 
-                # 2.1. Identificar al padre y recolectar todos los destinos del grupo.
                 for producto in grupo_productos:
                     if producto['indice'] == producto['subindice']:
                         padre = producto
                     
-                    desp1 = parse_despacho(producto['despacho1_raw'])
-                    desp2 = parse_despacho(producto['despacho2_raw'])
-                    if desp1 in destinos_impresion: destinos_del_grupo.add(destinos_impresion[desp1])
-                    if desp2 in destinos_impresion: destinos_del_grupo.add(destinos_impresion[desp2])
+                    # Extraer destinos desde los HIJOS NUEVOS
+                    if producto['indice'] != producto['subindice']:
+                        desp1 = parse_despacho(producto['despacho1_raw'])
+                        desp2 = parse_despacho(producto['despacho2_raw'])
+                        if desp1 in destinos_impresion: destinos_del_grupo.add(destinos_impresion[desp1])
+                        if desp2 in destinos_impresion: destinos_del_grupo.add(destinos_impresion[desp2])
 
-                # 2.2. Despachar al padre a TODOS los destinos del grupo.
+                # Despachar al Padre (enlazado a todos los destinos de los hijos)
                 if padre:
-                    # Para el padre de un menú, el campo 'menu' en la comanda de preparación es '1'.
-                    datos_fila_padre = (padre['indice'], padre['subindice'], padre['nombre'], padre['cantidad'], padre['folio'], '1', padre['nota'])
+                    es_padre_rescatado = any(padre['subindice'] == p[1] for p in padres_rescatados)
+                    nota_padre = padre['nota']
+                    
+                    # Marca visual para la cocina si el padre ya había salido antes
+                    if es_padre_rescatado:
+                        nota_padre = f"(AGREGADO) {nota_padre}".strip()
+
+                    datos_fila_padre = (padre['indice'], padre['subindice'], padre['nombre'], padre['cantidad'], padre['folio'], '1', nota_padre)
                     for tabla in destinos_del_grupo:
                         datos_para_impresion[tabla].append(datos_fila_padre)
 
-                # 2.3. Despachar a los hijos SOLO a sus destinos específicos.
+                # Despachar a los Hijos (cada uno a sus destinos)
                 for producto in grupo_productos:
-                    if producto['indice'] != producto['subindice']: # Es un hijo
+                    if producto['indice'] != producto['subindice']:
                         desp1 = parse_despacho(producto['despacho1_raw'])
                         desp2 = parse_despacho(producto['despacho2_raw'])
                         
@@ -1116,15 +1136,13 @@ def comandar_ticket(folio):
                         if desp1 in destinos_impresion: tablas_hijo.add(destinos_impresion[desp1])
                         if desp2 in destinos_impresion: tablas_hijo.add(destinos_impresion[desp2])
                         
-                        # Para los hijos de un menú, el campo 'menu' también es '1'.
                         datos_fila_hijo = (producto['indice'], producto['subindice'], producto['nombre'], producto['cantidad'], producto['folio'], '1', producto['nota'])
                         for tabla in tablas_hijo:
                             datos_para_impresion[tabla].append(datos_fila_hijo)
 
-        # PASO 4: Ejecutar las inserciones masivas (bulk inserts) por cada área.
+        # PASO 4: Inserciones
         for nombre_tabla, datos in datos_para_impresion.items():
-            if datos: # Solo si hay algo que insertar en esta área
-                # El nombre de la tabla se inyecta de forma segura desde nuestro diccionario.
+            if datos:
                 sql_insert_despacho = f"""
                     INSERT INTO {nombre_tabla} 
                     (Indice, SubIndice, Nproducto, Cantidad, folio, menu, nota)
@@ -1132,7 +1150,7 @@ def comandar_ticket(folio):
                 """
                 cursor.executemany(sql_insert_despacho, datos)
 
-        # PASO 5: Marcar todos los productos como comandados.
+        # PASO 5: Marcar comandados (Esto no afectará al Padre Rescatado porque ya era Flag='1')
         sql_update_flag = """
             UPDATE Consumos 
             SET Flag = '1' 

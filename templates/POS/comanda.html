@@ -871,9 +871,28 @@
 
         function guardarNota() {
             let index = document.getElementById('nota-item-index').value;
-            comanda[index].nota = document.getElementById('txt-nota').value.toUpperCase();
+            let item = comanda[index];
+            let notaAntigua = item.nota; // Guardamos la anterior para buscarla en BD
+            let notaNueva = document.getElementById('txt-nota').value.toUpperCase();
+            
+            item.nota = notaNueva;
             modalNotaObj.hide();
             renderizarTicket();
+
+            // Enviamos la actualización al backend
+            fetch('/pos/api/ticket/nota/', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrftoken},
+                body: JSON.stringify({
+                    folio: '{{ folio }}',
+                    producto: item.codigo,
+                    clase: item.clase,
+                    grupo: item.grupo,
+                    cuenta: item.cuenta,
+                    nota_antigua: notaAntigua,
+                    nota_nueva: notaNueva
+                })
+            });
         }
 
         function abrirModalCubiertos() {

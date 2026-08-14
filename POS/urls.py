@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/ticket/agregar_opciones_menu/', views.api_agregar_opciones_menu, name='api_agregar_opciones_menu'),
     path('api/productos/buscar/', views.api_buscar_productos, name='api_buscar_productos'),
     path('api/ticket/cubiertos/', views.api_actualizar_cubiertos, name='api_actualizar_cubiertos'),
+    path('api/ticket/nota/', views.api_actualizar_nota, name='api_actualizar_nota'),
     
     # --- ENDPOINTS AJAX (Control de Mesas) ---
     path('api/mesa/verificar/<str:punto>/<str:numero>/', views.api_verificar_mesa_vacia, name='api_verificar_mesa_vacia'),

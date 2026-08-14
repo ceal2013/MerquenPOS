@@ -395,3 +395,20 @@ def api_get_variedades(request, clase, grupo, producto):
     """Devuelve las variedades disponibles para un producto específico."""
     variedades = services.obtener_variedades_producto(clase, grupo, producto)
     return JsonResponse({'variedades': variedades})
+
+@custom_login_required
+def api_actualizar_nota(request):
+    """Recibe la orden de actualizar la nota de un producto desde el icono del lápiz."""
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        folio = data.get('folio')
+        producto = data.get('producto')
+        clase = data.get('clase')
+        grupo = data.get('grupo')
+        cuenta = data.get('cuenta', '1')
+        nota_antigua = data.get('nota_antigua', '')
+        nota_nueva = data.get('nota_nueva', '')
+        
+        services.actualizar_nota_consumo(folio, producto, clase, grupo, cuenta, nota_antigua, nota_nueva)
+        return JsonResponse({'status': 'ok'})
+    return JsonResponse({'status': 'bad_request'}, status=400)
