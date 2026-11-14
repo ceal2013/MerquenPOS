@@ -439,24 +439,38 @@
             mesasActuales.forEach(col => col.remove());
         }
 
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function createMesaCardHTML(mesa, puntoCodigo) {
-            const garzon = mesa.nombreGarzon || 'Ocupada';
-            const usuarioBloqueoEscaped = mesa.usuarioBloqueo.replace(/'/g, "\\'");
-            const onclickAction = `handleMesaCardClick('${puntoCodigo}', '${mesa.numero}', ${mesa.bloqueada}, '${usuarioBloqueoEscaped}', '${mesa.estado}')`;
-            const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${mesa.usuarioBloqueo}"><i class="fa-solid fa-lock"></i></div>` : '';
+            const garzon = escapeHtml(mesa.nombreGarzon || 'Ocupada');
+            const usuarioBloqueoAttr = escapeHtml((mesa.usuarioBloqueo || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
+            const usuarioBloqueoTitle = escapeHtml(mesa.usuarioBloqueo || '');
+            const numeroSafe = escapeHtml(mesa.numero);
+            const estadoSafe = escapeHtml(mesa.estado);
+            const puntoSafe = escapeHtml(puntoCodigo);
+            const onclickAction = `handleMesaCardClick('${puntoSafe}', '${numeroSafe}', ${Boolean(mesa.bloqueada)}, '${usuarioBloqueoAttr}', '${estadoSafe}')`;
+            const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${usuarioBloqueoTitle}"><i class="fa-solid fa-lock"></i></div>` : '';
             const estadoContenido = mesa.estado === 'libre'
                 ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
-                : `<div class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${mesa.cubiertos}">
+                : `<div class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${Number(mesa.cubiertos)}">
                        <span><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
-                       <span><i class="fa-solid fa-utensils me-1"></i> ${mesa.cubiertos}</span>
+                       <span><i class="fa-solid fa-utensils me-1"></i> ${Number(mesa.cubiertos)}</span>
                    </div>
-                   <div class="mesa-tiempo"><div>${mesa.fecha}</div><div>${mesa.hora}</div></div>`;
+                   <div class="mesa-tiempo"><div>${escapeHtml(mesa.fecha)}</div><div>${escapeHtml(mesa.hora)}</div></div>`;
 
             return `
                 <div class="col">
-                    <div class="mesa-card estado-${mesa.estado}" data-numero="${mesa.numero}" onclick="${onclickAction}">
+                    <div class="mesa-card estado-${estadoSafe}" data-numero="${numeroSafe}" onclick="${onclickAction}">
                         ${bloqueoBadge}
-                        <p class="mesa-numero">${mesa.numero}</p>
+                        <p class="mesa-numero">${numeroSafe}</p>
                         ${estadoContenido}
                     </div>
                 </div>

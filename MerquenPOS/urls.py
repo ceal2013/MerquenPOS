@@ -1,9 +1,9 @@
-from django.contrib import admin
 from django.urls import path, include
 from MerquenPOS import views as global_views
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    # Panel de administración de Django deshabilitado por seguridad (no se utilizan modelos ORM)
+    # path('admin/', admin.site.urls),
     
     # Ruta principal para la pantalla de inicio de sesión
     path('', global_views.login_global_view, name='login'),

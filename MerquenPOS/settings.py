@@ -169,3 +169,6 @@ SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_SECURE = False
 # Previene que JavaScript del lado del cliente acceda a la cookie de sesión.
 SESSION_COOKIE_HTTPONLY = True
+# Protege las cookies contra envío en peticiones cross-site no deseadas.
+SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'Lax'

@@ -340,6 +340,16 @@
         let nombreFamiliaActiva = '';
         let multiplicadorActivo = 1; 
 
+        function escapeHtml(str) {
+            if (str === null || str === undefined) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
         function getCookie(name) {
             let cookieValue = null;
             if (document.cookie && document.cookie !== '') {
@@ -442,17 +452,17 @@
                     let html = '';
                     if (data.productos && data.productos.length > 0) {
                         data.productos.forEach(p => {
-                            const nombreEscapado = p.nombre.replace(/'/g, "\\'");
+                            const nombreEscapado = escapeHtml(p.nombre.replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
                             const esMenuBadge = p.es_menu ? `<span class="badge bg-primary mt-1">MENÚ</span>` : '';
                             html += `
                             <div class="col">
-                                <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${nombreEscapado}', ${p.precio}, '${p.clase}', '${p.grupo}', ${p.es_menu})">
-                                    <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span>${esMenuBadge}</div>
+                                <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${escapeHtml(p.codigo)}', '${nombreEscapado}', ${Number(p.precio)}, '${escapeHtml(p.clase)}', '${escapeHtml(p.grupo)}', ${Boolean(p.es_menu)})">
+                                    <div><span class="d-block mb-1">${escapeHtml(p.nombre)}</span><span class="badge bg-success">$${Number(p.precio)}</span>${esMenuBadge}</div>
                                 </button>
                             </div>`;
                         });
                     } else {
-                        html = `<div class="col-12 text-center text-muted mt-5">No se encontraron productos para "${term}".</div>`;
+                        html = `<div class="col-12 text-center text-muted mt-5">No se encontraron productos para "${escapeHtml(term)}".</div>`;
                     }
                     gridProductos.innerHTML = html;
                     cambiarNivel('productos', `Resultados para: "${term}"`);
@@ -475,7 +485,8 @@
                 .then(data => {
                     let html = '';
                     data.grupos.forEach(g => {
-                        html += `<div class="col"><button class="btn-pos btn-grupo w-100" onclick="cargarProductos('${punto}', '${clase}', '${g.grupo}', '${g.nombre}')">${g.nombre}</button></div>`;
+                        const nombreGrupoEscapado = escapeHtml(g.nombre.replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
+                        html += `<div class="col"><button class="btn-pos btn-grupo w-100" onclick="cargarProductos('${escapeHtml(punto)}', '${escapeHtml(clase)}', '${escapeHtml(g.grupo)}', '${nombreGrupoEscapado}')">${escapeHtml(g.nombre)}</button></div>`;
                     });
                     document.getElementById('grid-grupos').innerHTML = html;
                     cambiarNivel('grupos', nombreFamilia);
@@ -488,12 +499,12 @@
                 .then(data => {
                     let html = '';
                     data.productos.forEach(p => {
-                        const nombreEscapado = p.nombre.replace(/'/g, "\\'");
+                        const nombreEscapado = escapeHtml(p.nombre.replace(/\\/g, "\\\\").replace(/'/g, "\\'"));
                         const esMenuBadge = p.es_menu ? `<span class="badge bg-primary mt-1">MENÚ</span>` : '';
                         html += `
                         <div class="col">
-                            <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${p.codigo}', '${nombreEscapado}', ${p.precio}, '${clase}', '${grupo}', ${p.es_menu})">
-                                <div><span class="d-block mb-1">${p.nombre}</span><span class="badge bg-success">$${p.precio}</span>${esMenuBadge}</div>
+                            <button class="btn-pos btn-producto w-100" onclick="agregarAlTicket('${escapeHtml(p.codigo)}', '${nombreEscapado}', ${Number(p.precio)}, '${escapeHtml(clase)}', '${escapeHtml(grupo)}', ${Boolean(p.es_menu)})">
+                                <div><span class="d-block mb-1">${escapeHtml(p.nombre)}</span><span class="badge bg-success">$${Number(p.precio)}</span>${esMenuBadge}</div>
                             </button>
                         </div>`;
                     });
@@ -660,7 +671,8 @@
                 if (item.nota) {
                     const noteElement = document.createElement('small');
                     noteElement.className = 'text-warning fw-bold d-block';
-                    noteElement.innerHTML = `<i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i> ` + item.nota;
+                    noteElement.innerHTML = `<i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i> `;
+                    noteElement.appendChild(document.createTextNode(item.nota));
                     tdProd.appendChild(document.createElement('br')); 
                     tdProd.appendChild(noteElement);
                 }

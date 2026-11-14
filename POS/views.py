@@ -3,9 +3,12 @@ from django.contrib import messages
 from django.views.decorators.cache import never_cache
 from django.http import JsonResponse
 import json
+import logging
 
 from . import services
 from MerquenPOS.decorators import custom_login_required
+
+logger = logging.getLogger(__name__)
 
 # =====================================================================
 # 1. VISTAS PRINCIPALES (PANTALLAS)
@@ -237,8 +240,11 @@ def api_agregar_ticket(request):
                 producto_padre=producto_padre, opciones=opciones
             )
             return JsonResponse({'status': 'ok'})
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+        except (ValueError, json.JSONDecodeError) as ve:
+            return JsonResponse({'status': 'error', 'message': str(ve)}, status=400)
+        except Exception:
+            logger.exception("Error inesperado en api_agregar_ticket")
+            return JsonResponse({'status': 'error', 'message': 'Ocurrió un error interno al agregar el producto.'}, status=500)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
@@ -266,33 +272,42 @@ def api_agregar_opciones_menu(request):
                 opciones=opciones
             )
             return JsonResponse({'status': 'ok'})
-        except ValueError as ve:
-            return JsonResponse({'status': 'error', 'message': str(ve)}, status=404)
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        except (ValueError, json.JSONDecodeError) as ve:
+            return JsonResponse({'status': 'error', 'message': str(ve)}, status=400)
+        except Exception:
+            logger.exception("Error inesperado en api_agregar_opciones_menu")
+            return JsonResponse({'status': 'error', 'message': 'Ocurrió un error interno al agregar las opciones del menú.'}, status=500)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
 def api_crear_cuenta(request):
     """Llama al servicio para clonar la CtasMesas y retorna el nuevo número."""
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        nueva_cuenta = services.crear_cuenta_extra(folio)
-        return JsonResponse({'status': 'ok', 'nueva_cuenta': nueva_cuenta})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            nueva_cuenta = services.crear_cuenta_extra(folio)
+            return JsonResponse({'status': 'ok', 'nueva_cuenta': nueva_cuenta})
+        except Exception:
+            logger.exception("Error en api_crear_cuenta")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo crear la sub-cuenta.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
 def api_mover_producto(request):
     """Llama al servicio para actualizar el campo Cuenta en Consumos usando el Indice."""
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        indice = data.get('indice')
-        destino = data.get('cuenta_destino')
-        
-        services.mover_producto_cuenta(folio, indice, destino)
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            indice = data.get('indice')
+            destino = data.get('cuenta_destino')
+            
+            services.mover_producto_cuenta(folio, indice, destino)
+            return JsonResponse({'status': 'ok'})
+        except Exception:
+            logger.exception("Error en api_mover_producto")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo mover el producto.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 
@@ -303,16 +318,20 @@ def api_borrar_ticket(request):
     Ahora utiliza Clase y Grupo para identificar unívocamente el ítem.
     """
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        producto = data.get('producto')
-        clase = data.get('clase')
-        grupo = data.get('grupo')
-        cuenta = data.get('cuenta', '1')
-        nota = data.get('nota', '')
-        
-        services.borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota)
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            producto = data.get('producto')
+            clase = data.get('clase')
+            grupo = data.get('grupo')
+            cuenta = data.get('cuenta', '1')
+            nota = data.get('nota', '')
+            
+            services.borrar_producto_consumo(folio, producto, clase, grupo, cuenta, nota)
+            return JsonResponse({'status': 'ok'})
+        except Exception:
+            logger.exception("Error en api_borrar_ticket")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo eliminar el producto.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 
@@ -323,11 +342,15 @@ def api_comandar_ticket(request):
     en todos los productos nuevos de esta cuenta.
     """
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        
-        services.comandar_ticket(folio)
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            
+            services.comandar_ticket(folio)
+            return JsonResponse({'status': 'ok'})
+        except Exception:
+            logger.exception("Error en api_comandar_ticket")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo comandar el pedido.'}, status=500)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 
@@ -338,11 +361,19 @@ def api_anular_ticket(request):
     o desde la alerta si la mesa estaba vacía.
     """
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        
-        services.anular_cuenta(folio)
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            usuario = request.session.get('usuario_activo', {})
+            es_autorizado = str(usuario.get('es_admin', '')).strip() == 'S' or str(usuario.get('es_supervisor', '')).strip() == 'S'
+            
+            services.anular_cuenta(folio, permitir_con_consumos=es_autorizado)
+            return JsonResponse({'status': 'ok'})
+        except ValueError as ve:
+            return JsonResponse({'status': 'error', 'message': str(ve)}, status=403)
+        except Exception:
+            logger.exception("Error en api_anular_ticket")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo anular la cuenta.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
@@ -352,12 +383,18 @@ def api_actualizar_cubiertos(request):
     la cantidad de cubiertos en tiempo real.
     """
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        cubiertos = data.get('cubiertos')
-        
-        services.actualizar_cubiertos_cuenta(folio, cubiertos)
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            cubiertos = data.get('cubiertos')
+            
+            services.actualizar_cubiertos_cuenta(folio, cubiertos)
+            return JsonResponse({'status': 'ok'})
+        except ValueError as ve:
+            return JsonResponse({'status': 'error', 'message': str(ve)}, status=400)
+        except Exception:
+            logger.exception("Error en api_actualizar_cubiertos")
+            return JsonResponse({'status': 'error', 'message': 'No se pudieron actualizar los cubiertos.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
@@ -379,15 +416,17 @@ def api_verificar_mesa_vacia(request, punto, numero):
 
 @custom_login_required
 def api_anular_mesa(request):
-    """Recibe la orden del Modal para anular el folio completo."""
+    """Recibe la orden del Modal para anular el folio completo (solo mesas sin consumo)."""
     if request.method == 'POST':
-        data = json.loads(request.body)
-        # MEJORA: Se cambia la función que se llama.
-        # En lugar de usar la compleja 'anular_mesa_completa', que puede causar bloqueos
-        # en mesas sin consumos, usamos 'anular_cuenta'. Esta función es más simple
-        # y directa para este caso de uso, evitando la condición de carrera en la BD.
-        services.anular_cuenta(data.get('folio'))
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            services.anular_cuenta(data.get('folio'), permitir_con_consumos=False)
+            return JsonResponse({'status': 'ok'})
+        except ValueError as ve:
+            return JsonResponse({'status': 'error', 'message': str(ve)}, status=403)
+        except Exception:
+            logger.exception("Error en api_anular_mesa")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo anular la mesa.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)
 
 @custom_login_required
@@ -400,15 +439,19 @@ def api_get_variedades(request, clase, grupo, producto):
 def api_actualizar_nota(request):
     """Recibe la orden de actualizar la nota de un producto desde el icono del lápiz."""
     if request.method == 'POST':
-        data = json.loads(request.body)
-        folio = data.get('folio')
-        producto = data.get('producto')
-        clase = data.get('clase')
-        grupo = data.get('grupo')
-        cuenta = data.get('cuenta', '1')
-        nota_antigua = data.get('nota_antigua', '')
-        nota_nueva = data.get('nota_nueva', '')
-        
-        services.actualizar_nota_consumo(folio, producto, clase, grupo, cuenta, nota_antigua, nota_nueva)
-        return JsonResponse({'status': 'ok'})
+        try:
+            data = json.loads(request.body)
+            folio = data.get('folio')
+            producto = data.get('producto')
+            clase = data.get('clase')
+            grupo = data.get('grupo')
+            cuenta = data.get('cuenta', '1')
+            nota_antigua = data.get('nota_antigua', '')
+            nota_nueva = data.get('nota_nueva', '')
+            
+            services.actualizar_nota_consumo(folio, producto, clase, grupo, cuenta, nota_antigua, nota_nueva)
+            return JsonResponse({'status': 'ok'})
+        except Exception:
+            logger.exception("Error en api_actualizar_nota")
+            return JsonResponse({'status': 'error', 'message': 'No se pudo actualizar la nota.'}, status=400)
     return JsonResponse({'status': 'bad_request'}, status=400)

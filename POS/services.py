@@ -409,6 +409,13 @@ def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
     Returns:
         str: El folio de la nueva cuenta creada.
     """
+    try:
+        cubiertos_int = int(cubiertos)
+    except (ValueError, TypeError):
+        raise ValueError("La cantidad de cubiertos no es válida.")
+    if cubiertos_int < 1 or cubiertos_int > 999:
+        raise ValueError("La cantidad de cubiertos debe estar entre 1 y 999.")
+
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = datos_turno['turno_bd']
@@ -433,21 +440,27 @@ def crear_nueva_cuenta(punto, numero_mesa, usuario_id, cubiertos):
             )
         """
         cursor.execute(sql, [
-            punto, numero_mesa, garzon_id, cubiertos, 
+            punto, numero_mesa, garzon_id, cubiertos_int, 
             fecha_proceso, nuevo_folio, turno_bd
         ])
         
     return nuevo_folio
 
-def anular_cuenta(folio):
+def anular_cuenta(folio, permitir_con_consumos=False):
     """Anula una cuenta específica, típicamente una que está vacía.
 
     Actualiza el registro en `CtasMesas` para un folio dado, estableciendo
     `sw = '1'` y `Status = '1'` para marcarla como anulada y liberada.
+    Valida en el servidor que la cuenta no tenga consumos registrados a menos
+    que esté explícitamente autorizado.
 
     Args:
         folio (str): El folio de la cuenta a anular.
+        permitir_con_consumos (bool): Si es False, impide anular cuentas con productos.
     """
+    if not permitir_con_consumos and verificar_tiene_consumos(folio):
+        raise ValueError("No se puede anular una cuenta que tiene productos registrados.")
+
     with connection.cursor() as cursor:
         sql = "UPDATE CtasMesas SET sw = '1', Status = '1' WHERE Folio = %s"
         cursor.execute(sql, [folio])
@@ -462,9 +475,16 @@ def actualizar_cubiertos_cuenta(folio, cantidad):
         folio (str): El folio de la cuenta a actualizar.
         cantidad (int): El nuevo número de cubiertos.
     """
+    try:
+        cantidad_int = int(cantidad)
+    except (ValueError, TypeError):
+        raise ValueError("La cantidad de cubiertos no es válida.")
+    if cantidad_int < 1 or cantidad_int > 999:
+        raise ValueError("La cantidad de cubiertos debe estar entre 1 y 999.")
+
     with connection.cursor() as cursor:
         sql = "UPDATE CtasMesas SET Cubiertos = %s WHERE Folio = %s AND Status = '0'"
-        cursor.execute(sql, [cantidad, folio])
+        cursor.execute(sql, [cantidad_int, folio])
 
 def obtener_cuentas_folio(folio):
     """Obtiene los números de las sub-cuentas activas para un folio.
@@ -825,6 +845,28 @@ def obtener_consumos_mesa(folio):
             })
         return consumos
     
+def obtener_precio_producto(punto, clase, grupo, producto):
+    """Obtiene desde la base de datos el precio oficial de un producto para un punto de venta."""
+    with connection.cursor() as cursor:
+        sql = """
+            SELECT ISNULL(t.Valor, p.Valor) AS PrecioUnitario
+            FROM Productos p
+            LEFT JOIN Tarifas t 
+                ON p.Producto = t.Codigo 
+                AND p.Clase = t.Clase 
+                AND p.Grupo = t.Grupo 
+                AND t.Punto = %s
+            WHERE p.Clase = %s 
+              AND p.Grupo = %s 
+              AND p.Producto = %s 
+              AND p.Baja <> 'S'
+        """
+        cursor.execute(sql, [punto, clase, grupo, producto])
+        fila = cursor.fetchone()
+        if not fila or fila[0] is None:
+            raise ValueError("El producto seleccionado no existe o no está disponible.")
+        return float(fila[0])
+
 @transaction.atomic
 def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, opciones=None):
     """
@@ -837,11 +879,26 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
     clase_padre = producto_padre['clase']
     grupo_padre = producto_padre['grupo']
     producto_padre_cod = producto_padre['producto']
-    precio_padre = producto_padre['precio']
-    cantidad_padre = producto_padre['cantidad']
     nota_padre = producto_padre.get('nota', '')
+
+    try:
+        cantidad_padre = float(producto_padre['cantidad'])
+    except (ValueError, TypeError, KeyError):
+        raise ValueError("La cantidad del producto no es válida.")
+    if cantidad_padre <= 0:
+        raise ValueError("La cantidad del producto debe ser mayor a 0.")
+
+    # SEGURIDAD: El precio se obtiene siempre desde la BD en el servidor, ignorando el enviado por el cliente.
+    precio_padre = obtener_precio_producto(punto, clase_padre, grupo_padre, producto_padre_cod)
     
     opciones = opciones or []
+    for opcion in opciones:
+        try:
+            cant_op = float(opcion.get('cantidad', 0))
+        except (ValueError, TypeError):
+            raise ValueError("La cantidad de una opción del menú no es válida.")
+        if cant_op <= 0:
+            raise ValueError("La cantidad de las opciones del menú debe ser mayor a 0.")
 
     with connection.cursor() as cursor:
         # CASO 1: Es un producto simple (sin opciones) y se puede agrupar.
@@ -910,14 +967,15 @@ def agregar_producto_consumo(folio, punto, cuenta, usuario_id, producto_padre, o
                 ) 
             """
             for opcion in opciones:
-                # CORRECCIÓN: usamos .get('precio', 0) para evitar que falle si JS olvida mandarlo
+                cant_op = float(opcion['cantidad'])
+                # SEGURIDAD: Las opciones de menú tienen valor 0 (el precio está en el padre).
                 cursor.execute(sql_insert_hijo, [
-                    punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'], opcion.get('precio', 0),
+                    punto, mesa, opcion['grupo'], opcion['producto'], cant_op, 0,
                     folio, fecha_proceso, turno_bd, opcion['clase'],
                     cuenta, usuario_id,
                     clase_padre, grupo_padre, producto_padre_cod, 
                     subindice_padre, 
-                    opcion.get('precio', 0),
+                    0,
                     opcion.get('nota', '')
                 ])
 
@@ -927,6 +985,14 @@ def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_p
     """
     Agrega productos de opción (hijos) a un menú ya existente en la comanda.
     """
+    for opcion in opciones:
+        try:
+            cant_op = float(opcion.get('cantidad', 0))
+        except (ValueError, TypeError):
+            raise ValueError("La cantidad de una opción del menú no es válida.")
+        if cant_op <= 0:
+            raise ValueError("La cantidad de las opciones del menú debe ser mayor a 0.")
+
     datos_turno = obtener_turno_activo()
     fecha_proceso = datos_turno['fecha']
     turno_bd = datos_turno['turno_bd']
@@ -966,13 +1032,14 @@ def agregar_opciones_a_menu_existente(folio, punto, cuenta, usuario_id, indice_p
         
         # 3. Iterar e insertar cada opción.
         for opcion in opciones:
+            cant_op = float(opcion['cantidad'])
             cursor.execute(sql_insert_hijo, [
-                punto, mesa, opcion['grupo'], opcion['producto'], opcion['cantidad'], opcion.get('precio', 0),
+                punto, mesa, opcion['grupo'], opcion['producto'], cant_op, 0,
                 folio, fecha_proceso, turno_bd, opcion['clase'],
                 cuenta, usuario_id,
                 clase_padre, grupo_padre, producto_padre_cod, 
                 indice_padre, 
-                opcion.get('precio', 0),
+                0,
                 opcion.get('nota', '')
             ])
 
