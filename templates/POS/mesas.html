@@ -13,22 +13,22 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <style>
-        /* --- VARIABLES GLOBALES DE COLOR --- */
+        /* --- VARIABLES GLOBALES DE COLOR (ALTO CONTRASTE) --- */
         :root {
             --color-primario: #8B1E1E; /* Guinda Merquén */
-            --color-fondo: #f8fafc;
+            --color-fondo: #e2e8f0;
             
             /* Colores para los estados de las mesas */
             --bg-libre: #ffffff;
-            --border-libre: #cbd5e1;
-            --text-libre: #475569;
+            --border-libre: #64748b;
+            --text-libre: #0f172a;
 
-            --bg-ocupada: #dbeafe;     
-            --border-ocupada: #bfdbfe;
+            --bg-ocupada: #bfdbfe;     
+            --border-ocupada: #1d4ed8;
             --text-ocupada: #1e3a8a;
 
-            --bg-impresa: #fee2e2;     
-            --border-impresa: #fecaca;
+            --bg-impresa: #fecaca;     
+            --border-impresa: #b91c1c;
             --text-impresa: #7f1d1d;
         }
 
@@ -42,21 +42,22 @@
         }
         
         /* --- BARRA SUPERIOR (TOPBAR) --- */
-        .topbar { background-color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.05); padding: 10px 20px; }
-        .info-turno { font-size: 1rem; color: #334155; background-color: #f8fafc; padding: 6px 18px; border-radius: 30px; font-weight: 600; border: 1px solid #e2e8f0; }
+        .topbar { background-color: white; border-bottom: 2px solid #94a3b8; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.1); padding: 10px 20px; }
+        .info-turno { font-size: 1rem; color: #0f172a; background-color: #f1f5f9; padding: 6px 18px; border-radius: 30px; font-weight: 700; border: 2px solid #64748b; }
         .info-turno i { color: var(--color-primario); }
 
         /* --- PESTAÑAS (PUNTOS DE VENTA) --- */
-        .nav-tabs { border-bottom: 2px solid #e2e8f0; margin-bottom: 15px; }
-        .nav-tabs .nav-link { color: #64748b; font-weight: 600; font-size: 1rem; border: none; padding: 12px 20px; border-bottom: 3px solid transparent; }
-        .nav-tabs .nav-link.active { color: var(--color-primario); background-color: transparent; border-bottom: 3px solid var(--color-primario); }
+        .nav-tabs { border-bottom: 2px solid #64748b; margin-bottom: 15px; gap: 4px; }
+        .nav-tabs .nav-link { color: #1e293b; background-color: #cbd5e1; font-weight: 700; font-size: 1rem; border: 2px solid #64748b; border-bottom: none; border-radius: 8px 8px 0 0; padding: 10px 20px; }
+        .nav-tabs .nav-link:hover { background-color: #94a3b8; color: #0f172a; }
+        .nav-tabs .nav-link.active { color: #ffffff; background-color: var(--color-primario); border-color: var(--color-primario); }
 
         /* --- TARJETAS DE MESAS --- */
-        .mesa-card { border-radius: 10px; text-align: center; padding: 15px 5px; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); user-select: none; }
+        .mesa-card { border-radius: 10px; text-align: center; padding: 15px 5px; cursor: pointer; transition: transform 0.1s, box-shadow 0.1s; position: relative; height: 100%; display: flex; flex-direction: column; justify-content: center; box-shadow: 0 3px 6px rgba(15, 23, 42, 0.14); user-select: none; }
         .mesa-card:active { transform: scale(0.96); } /* Efecto de hundimiento al hacer clic */
         
         /* Textos internos de la mesa */
-        .mesa-numero { font-size: 2.2rem; font-weight: 700; margin-bottom: 2px; line-height: 1; }
+        .mesa-numero { font-size: 2.2rem; font-weight: 800; margin-bottom: 2px; line-height: 1; }
         
         .mesa-estado-texto { 
             /* Se usa Flexbox para permitir que el texto se ajuste en vez de cortarse */
@@ -65,7 +66,7 @@
             justify-content: center;
             gap: 2px 6px; /* Espacio vertical y horizontal entre elementos */
             font-size: 0.85rem; 
-            font-weight: 600; 
+            font-weight: 700; 
             text-transform: uppercase; 
             letter-spacing: 0.5px; 
             margin-top: 5px; 
@@ -74,7 +75,7 @@
         
         .mesa-tiempo {
             font-size: 0.85rem; 
-            font-weight: 600; 
+            font-weight: 700; 
             text-transform: uppercase; 
             letter-spacing: 0.5px; 
             line-height: 1.2;
@@ -84,23 +85,24 @@
         
         /* Clases dinámicas aplicadas según el estado de la BD */
         .estado-libre { background-color: var(--bg-libre); border: 2px solid var(--border-libre); color: var(--text-libre); }
+        .estado-libre .mesa-estado-texto { color: #334155; }
         .estado-ocupada { background-color: var(--bg-ocupada); border: 2px solid var(--border-ocupada); color: var(--text-ocupada); }
         .estado-impresa { background-color: var(--bg-impresa); border: 2px solid var(--border-impresa); color: var(--text-impresa); }
         
         /* Candado rojo de ControlMesas */
-        .bloqueo-badge { position: absolute; top: 5px; right: 5px; background-color: white; color: var(--color-primario); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; box-shadow: 0 2px 4px rgba(0,0,0,0.15); }
+        .bloqueo-badge { position: absolute; top: 5px; right: 5px; background-color: #b91c1c; color: #ffffff; border: 2px solid #ffffff; border-radius: 50%; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; box-shadow: 0 2px 5px rgba(0,0,0,0.3); }
 
         /* --- FOOTER CORPORATIVO --- */
-        .footer-corporativo { background-color: white; border-top: 1px solid #e2e8f0; padding: 10px 0; margin-top: auto; }
-        .footer-texto { font-size: 0.8rem; color: #94a3b8; margin: 0; font-weight: 600; }
+        .footer-corporativo { background-color: white; border-top: 2px solid #94a3b8; padding: 10px 0; margin-top: auto; }
+        .footer-texto { font-size: 0.85rem; color: #334155; margin: 0; font-weight: 700; }
 
         /* --- ESTILOS DEL MODAL (TECLADO DE CUBIERTOS) --- */
-        .pantalla-cubiertos { background-color: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; font-size: 2.5rem; font-weight: 700; color: var(--color-primario); text-align: right; margin-bottom: 15px; height: 70px; display: flex; align-items: center; justify-content: flex-end; }
-        .btn-tecla { height: 60px; font-size: 1.5rem; font-weight: bold; border-radius: 12px; color: #334155; background-color: white; border: 2px solid #e2e8f0; transition: all 0.1s; }
-        .btn-tecla:active { background-color: #f1f5f9; transform: scale(0.95); border-color: #cbd5e1; }
-        .tecla-borrar { color: #ef4444; }
-        .tecla-aceptar { background-color: #10b981; color: white; border: none; }
-        .tecla-aceptar:active { background-color: #059669; }
+        .pantalla-cubiertos { background-color: #ffffff; border: 2px solid #475569; border-radius: 12px; padding: 10px 20px; font-size: 2.5rem; font-weight: 800; color: var(--color-primario); text-align: right; margin-bottom: 15px; height: 70px; display: flex; align-items: center; justify-content: flex-end; }
+        .btn-tecla { height: 60px; font-size: 1.5rem; font-weight: 800; border-radius: 12px; color: #0f172a; background-color: #f8fafc; border: 2px solid #64748b; transition: all 0.1s; }
+        .btn-tecla:active { background-color: #cbd5e1; transform: scale(0.95); border-color: #1e293b; }
+        .tecla-borrar { color: #991b1b; background-color: #fee2e2; border-color: #dc2626; }
+        .tecla-aceptar { background-color: #047857; color: white; border: 2px solid #065f46; }
+        .tecla-aceptar:active { background-color: #065f46; }
     </style>
 </head>
 <body>
@@ -120,10 +122,10 @@
         </div>
         
         <div class="text-end text-nowrap">
-            <span class="text-secondary fw-semibold me-2 d-none d-md-inline">
+            <span class="text-dark fw-bold me-2 d-none d-md-inline">
                 <i class="fa-solid fa-user me-1"></i> {{ usuario.nombre }}
             </span>
-            <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm fw-bold">Salir</a>
+            <a href="{% url 'logout' %}" class="btn btn-danger btn-sm fw-bold">Salir</a>
         </div>
     </div>
 
@@ -172,7 +174,7 @@
                                             <p class="mesa-numero">{{ mesa.numero }}</p>
                                             
                                             {% if mesa.estado == 'libre' %}
-                                                <p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>
+                                                <p class="mesa-estado-texto">LIBRE</p>
                                             {% else %}
                                                 <div class="mesa-estado-texto" title="Garzón: {{ mesa.nombreGarzon|default:'N/A' }} | Comensales: {{ mesa.cubiertos }}">
                                                     <span><i class="fa-solid fa-clipboard-user me-1"></i> {{ mesa.nombreGarzon|default:'Ocupada' }}</span>
@@ -459,7 +461,7 @@
             const onclickAction = `handleMesaCardClick('${puntoSafe}', '${numeroSafe}', ${Boolean(mesa.bloqueada)}, '${usuarioBloqueoAttr}', '${estadoSafe}')`;
             const bloqueoBadge = mesa.bloqueada ? `<div class="bloqueo-badge" title="Bloqueada por ${usuarioBloqueoTitle}"><i class="fa-solid fa-lock"></i></div>` : '';
             const estadoContenido = mesa.estado === 'libre'
-                ? `<p class="mesa-estado-texto" style="opacity: 0.5;">LIBRE</p>`
+                ? `<p class="mesa-estado-texto">LIBRE</p>`
                 : `<div class="mesa-estado-texto" title="Garzón: ${garzon} | Comensales: ${Number(mesa.cubiertos)}">
                        <span><i class="fa-solid fa-clipboard-user me-1"></i> ${garzon}</span>
                        <span><i class="fa-solid fa-utensils me-1"></i> ${Number(mesa.cubiertos)}</span>

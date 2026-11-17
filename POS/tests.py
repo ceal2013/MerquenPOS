@@ -152,3 +152,61 @@ class SecurityServicesTests(SimpleTestCase):
         insert_call_args = mock_cursor.execute.call_args_list[2][0][1]
         self.assertIn(9500.0, insert_call_args)
         self.assertNotIn(1, [x for x in insert_call_args if isinstance(x, float)])
+
+
+@override_settings(SESSION_ENGINE='django.contrib.sessions.backends.cache')
+class TemplateContrastTests(SimpleTestCase):
+    def _login_session(self):
+        session = self.client.session
+        session['usuario_activo'] = {
+            'id': 10,
+            'nombre': 'GARZON PRUEBA',
+            'es_admin': 'N',
+            'es_supervisor': 'N',
+        }
+        session['nombre_local'] = 'Merquen Test'
+        session.save()
+
+    @patch('MerquenPOS.views.services.obtener_nombre_local', return_value='Merquen Test')
+    @patch('MerquenPOS.views.services.obtener_usuarios_activos', return_value=[{'nombre': 'ADMIN'}])
+    def test_login_template_uses_high_contrast_tokens(self, mock_usuarios, mock_local):
+        response = self.client.get(reverse('login'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '--color-boton: #047857;')
+        self.assertContains(response, '--color-fondo: #e2e8f0;')
+        self.assertNotContains(response, '--color-boton: #10b981;')
+
+    @patch('POS.views.services.obtener_turno_activo', return_value={'fecha': '17/11/2026', 'turno_texto': 'DIA'})
+    @patch('POS.views.services.getEstadoMesas', return_value=[
+        {'numero': '1', 'estado': 'libre', 'bloqueada': False, 'usuarioBloqueo': ''}
+    ])
+    @patch('POS.views.services.getPuntosVenta', return_value=[{'codigo': '01', 'nombre': 'SALON'}])
+    def test_mesas_template_uses_high_contrast_and_no_faded_libre(self, mock_puntos, mock_mesas, mock_turno):
+        self._login_session()
+        response = self.client.get(reverse('seleccion_mesas'))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '--border-libre: #64748b;')
+        self.assertContains(response, '--border-ocupada: #1d4ed8;')
+        self.assertContains(response, '--border-impresa: #b91c1c;')
+        self.assertNotContains(response, 'opacity: 0.5;')
+
+    @patch('POS.views.services.obtener_consumos_mesa', return_value=[])
+    @patch('POS.views.services.obtener_detalles_cuenta', return_value={
+        'cubiertos': 2,
+        'nombre_garzon': 'GARZON PRUEBA',
+        'cuentas_activas': ['1'],
+    })
+    @patch('POS.views.services.get_punto_nombre', return_value='SALON PRINCIPAL')
+    @patch('POS.views.services.get_familias_punto', return_value=[{'clase': '01', 'nombre': 'COCINA'}])
+    @patch('POS.views.services.obtener_turno_activo', return_value={'fecha': '17/11/2026', 'turno_texto': 'DIA'})
+    def test_comanda_template_uses_high_contrast_group_and_note_styles(
+        self, mock_turno, mock_fam, mock_npunto, mock_det, mock_cons
+    ):
+        self._login_session()
+        response = self.client.get(reverse('comanda', args=['01', '1', '1001']))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, '--color-grupo: #0369a1;')
+        self.assertContains(response, '.nota-ticket')
+        self.assertNotContains(response, '--color-grupo: #0ea5e9;')
+        self.assertNotContains(response, "noteElement.className = 'text-warning")
+

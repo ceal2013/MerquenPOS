@@ -13,9 +13,9 @@
         :root {
             --color-primario: #8B1E1E;
             --bg-ticket: #ffffff;
-            --bg-menu: #f1f5f9;
+            --bg-menu: #e2e8f0;
             --color-familia: #1e3a8a;
-            --color-grupo: #0ea5e9;
+            --color-grupo: #0369a1;
             --color-producto: #ffffff;
         }
 
@@ -34,7 +34,7 @@
         .panel-ticket {
             width: 35%;
             background-color: var(--bg-ticket);
-            border-right: 2px solid #cbd5e1;
+            border-right: 2px solid #64748b;
             display: flex;
             flex-direction: column;
             z-index: 10;
@@ -57,15 +57,16 @@
             .ticket-header, .ticket-footer { padding: 10px; }
         }
 
-        .ticket-header { padding: 10px 15px; border-bottom: 2px dashed #cbd5e1; background-color: #f8fafc; }
+        .ticket-header { padding: 10px 15px; border-bottom: 2px dashed #64748b; background-color: #f8fafc; }
         .ticket-body { flex-grow: 1; overflow-y: auto; padding: 0; }
-        .ticket-footer { padding: 15px; background-color: #f8fafc; border-top: 2px solid #cbd5e1; }
+        .ticket-footer { padding: 15px; background-color: #f8fafc; border-top: 2px solid #64748b; }
 
-        .tabla-comanda th { position: sticky; top: 0; background: white; font-size: 0.85rem; color: #64748b; }
-        .tabla-comanda td { vertical-align: middle; font-size: 0.95rem; font-weight: 600; }
-        .btn-accion-linea { padding: 3px 8px; border-radius: 4px; font-size: 0.85rem; }
+        .tabla-comanda th { position: sticky; top: 0; background: #f1f5f9; font-size: 0.85rem; color: #0f172a; font-weight: 700; border-bottom: 2px solid #64748b; }
+        .tabla-comanda td { vertical-align: middle; font-size: 0.95rem; font-weight: 600; color: #0f172a; border-bottom: 1px solid #cbd5e1; }
+        .btn-accion-linea { padding: 4px 9px; border-radius: 6px; font-size: 0.85rem; }
+        .nota-ticket { color: #9a3412; background-color: #ffedd5; border-left: 3px solid #ea580c; padding: 2px 6px; border-radius: 4px; font-weight: 700; display: inline-block; margin-top: 3px; }
 
-        .menu-header { background-color: white; padding: 10px 20px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; }
+        .menu-header { background-color: white; padding: 10px 20px; border-bottom: 2px solid #94a3b8; box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08); display: flex; justify-content: space-between; align-items: center; }
         .menu-body { flex-grow: 1; padding: 15px; overflow-y: auto; }
 
         .btn-pos {
@@ -77,8 +78,8 @@
             align-items: center;
             justify-content: center;
             text-align: center;
-            border: 2px solid rgba(0,0,0,0.1);
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 2px solid rgba(0,0,0,0.15);
+            box-shadow: 0 3px 6px rgba(15, 23, 42, 0.14);
             transition: transform 0.1s;
             cursor: pointer;
             padding: 10px;
@@ -86,18 +87,18 @@
         }
         .btn-pos:active { transform: scale(0.95); }
 
-        .btn-familia { background-color: var(--color-familia); color: white; }
-        .btn-grupo { background-color: var(--color-grupo); color: white; }
-        .btn-producto { background-color: var(--color-producto); color: #334155; border: 2px solid #cbd5e1; }
-        .btn-volver { background-color: #64748b; color: white; height: 100%; border-radius: 8px;}
+        .btn-familia { background-color: var(--color-familia); color: white; border: 2px solid #172554; }
+        .btn-grupo { background-color: var(--color-grupo); color: white; border: 2px solid #075985; }
+        .btn-producto { background-color: var(--color-producto); color: #0f172a; border: 2px solid #64748b; }
+        .btn-volver { background-color: #334155; color: white; border: 2px solid #1e293b; height: 100%; border-radius: 8px;}
         .d-none { display: none !important; }
     
-        .pantalla-cubiertos { background-color: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 12px; padding: 10px 20px; font-size: 2.5rem; font-weight: 700; color: var(--color-primario); text-align: right; margin-bottom: 15px; height: 70px; display: flex; align-items: center; justify-content: flex-end; }
-        .btn-tecla { height: 60px; font-size: 1.5rem; font-weight: bold; border-radius: 12px; color: #334155; background-color: white; border: 2px solid #e2e8f0; transition: all 0.1s; }
-        .btn-tecla:active { background-color: #f1f5f9; transform: scale(0.95); border-color: #cbd5e1; }
-        .tecla-borrar { color: #ef4444; }
-        .tecla-aceptar { background-color: #10b981; color: white; border: none; }
-        .tecla-aceptar:active { background-color: #059669; }
+        .pantalla-cubiertos { background-color: #ffffff; border: 2px solid #475569; border-radius: 12px; padding: 10px 20px; font-size: 2.5rem; font-weight: 800; color: var(--color-primario); text-align: right; margin-bottom: 15px; height: 70px; display: flex; align-items: center; justify-content: flex-end; }
+        .btn-tecla { height: 60px; font-size: 1.5rem; font-weight: 800; border-radius: 12px; color: #0f172a; background-color: #f8fafc; border: 2px solid #64748b; transition: all 0.1s; }
+        .btn-tecla:active { background-color: #cbd5e1; transform: scale(0.95); border-color: #1e293b; }
+        .tecla-borrar { color: #991b1b; background-color: #fee2e2; border-color: #dc2626; }
+        .tecla-aceptar { background-color: #047857; color: white; border: 2px solid #065f46; }
+        .tecla-aceptar:active { background-color: #065f46; }
     </style>
 </head>
 <body>
@@ -106,19 +107,19 @@
         
         <div class="panel-ticket">
             <div class="ticket-header">
-                <div class="text-center text-muted mb-2" style="font-size: 0.95rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">
+                <div class="text-center text-dark mb-2" style="font-size: 0.95rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px;">
                     {{ nombre_punto }}
                 </div>
                 
                 <div class="d-flex justify-content-between align-items-center mb-3">
                     <h4 class="fw-bold text-dark mb-0 fs-3">Mesa {{ numero }}</h4>
-                    <span class="badge bg-secondary fs-6">Folio: {{ folio }}</span>
+                    <span class="badge bg-dark fs-6">Folio: {{ folio }}</span>
                 </div>
                 
-                <div class="d-flex justify-content-between text-muted fs-5 align-items-center">
+                <div class="d-flex justify-content-between text-dark fw-semibold fs-5 align-items-center">
                     <span title="Garzón"><i class="fa-solid fa-clipboard-user fs-4 me-2 text-primary"></i> {{ nombre_garzon }}</span>
                     
-                    <span class="px-3 py-2 rounded" style="cursor: pointer; background-color: #f1f5f9; border: 1px solid #cbd5e1;" onclick="abrirModalCubiertos()" title="Clic para modificar cubiertos">
+                    <span class="px-3 py-2 rounded" style="cursor: pointer; background-color: #e2e8f0; border: 2px solid #64748b;" onclick="abrirModalCubiertos()" title="Clic para modificar cubiertos">
                         <i class="fa-solid fa-utensils fs-4 me-2 text-primary"></i>
                         <strong id="lbl-cubiertos" class="fs-4 text-dark">{{ cubiertos }}</strong>
                     </span>
@@ -144,7 +145,7 @@
 
             <div class="ticket-footer">
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4 class="fw-bold mb-0 text-secondary">TOTAL</h4>
+                    <h4 class="fw-bold mb-0 text-dark">TOTAL</h4>
                     <h2 class="fw-bold mb-0 text-success" id="lbl-total">$ 0</h2>
                 </div>
                 <div class="row g-2">
@@ -169,19 +170,19 @@
                         <i class="fa-solid fa-reply"></i>
                     </button>
                     
-                    <button id="btn-multiplicador" class="btn btn-outline-secondary fw-bold px-3 text-nowrap" onclick="pedirMultiplicador()" title="Multiplicar Cantidad">
+                    <button id="btn-multiplicador" class="btn btn-outline-dark fw-bold px-3 text-nowrap" onclick="pedirMultiplicador()" title="Multiplicar Cantidad">
                         <i class="fa-solid fa-xmark me-1"></i><span id="txt-multiplicador">1</span>
                     </button>
 
-                    <h5 class="mb-0 fw-bold text-secondary ms-2 text-nowrap" id="lbl-ruta-menu">FAMILIAS</h5>
+                    <h5 class="mb-0 fw-bold text-dark ms-2 text-nowrap" id="lbl-ruta-menu">FAMILIAS</h5>
 
                     <div class="input-group ms-4 w-100" style="max-width: 450px;">
-                        <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
-                        <input type="text" class="form-control" id="input-buscar-producto" placeholder="Buscar producto por nombre...">
-                        <button class="btn btn-outline-secondary" type="button" id="btn-limpiar-busqueda" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
+                        <span class="input-group-text bg-light border-secondary text-dark"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input type="text" class="form-control border-secondary text-dark fw-semibold" id="input-buscar-producto" placeholder="Buscar producto por nombre...">
+                        <button class="btn btn-outline-dark" type="button" id="btn-limpiar-busqueda" style="display:none;"><i class="fa-solid fa-xmark"></i></button>
                     </div>
                 </div>
-                <div class="text-end text-muted d-none d-md-block" style="font-size: 0.9rem;">
+                <div class="text-end text-dark fw-semibold d-none d-md-block" style="font-size: 0.9rem;">
                     <span class="me-3"><i class="fa-regular fa-clock"></i> {{ turno_activo }}</span>
                     <span>{{ nombre_local }} - {{ punto }}</span>
                 </div>
@@ -278,12 +279,12 @@
     <div class="modal fade" id="modalMover" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered modal-sm">
             <div class="modal-content">
-                <div class="modal-header bg-info text-white">
+                <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title fw-bold"><i class="fa-solid fa-arrow-right-arrow-left me-2"></i>Mover Producto</h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body text-center">
-                    <p class="fw-bold mb-3 text-secondary" id="lbl-producto-mover">Producto a mover</p>
+                    <p class="fw-bold mb-3 text-dark" id="lbl-producto-mover">Producto a mover</p>
                     <input type="hidden" id="mover-item-index">
                     <div id="btn-container-mover" class="d-grid gap-2">
                     </div>
@@ -552,7 +553,7 @@
             if (cant && !isNaN(cant) && parseInt(cant) > 0) {
                 multiplicadorActivo = parseInt(cant);
                 document.getElementById('txt-multiplicador').innerText = multiplicadorActivo;
-                document.getElementById('btn-multiplicador').classList.replace('btn-outline-secondary', 'btn-warning');
+                document.getElementById('btn-multiplicador').classList.replace('btn-outline-dark', 'btn-warning');
             }
         }
 
@@ -606,7 +607,7 @@
         
                 // Botón para mover producto entre cuentas (solo para padres comandados)
                 let btnMover = (cuentasActivas.length > 1 && item.estado === 'guardado' && !item.es_hijo) 
-                    ? `<button class="btn btn-sm btn-info text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})" title="Mover a otra cuenta"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
+                    ? `<button class="btn btn-sm btn-primary text-white btn-accion-linea ms-1" onclick="abrirModalMover(${index})" title="Mover a otra cuenta"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>` : '';
 
                 // === LÓGICA DE BOTÓN [+] DINÁMICO ===
                 const esPadreMenu = (item.menu === '1' && !item.es_hijo);
@@ -647,11 +648,11 @@
                     if (!item.es_hijo) {
                         iconosHtml = `${btnCompletarMenu}
                             <button class="btn btn-sm btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
+                            <button class="btn btn-sm btn-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
                     } else {
                         iconosHtml = `
                             <button class="btn btn-sm btn-warning btn-accion-linea me-1" onclick="abrirNota(${index})" title="Agregar Nota"><i class="fa-solid fa-pencil"></i></button>
-                            <button class="btn btn-sm btn-outline-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
+                            <button class="btn btn-sm btn-danger btn-accion-linea" onclick="borrarDelTicket(${index})"><i class="fa-solid fa-trash-can"></i></button>`;
                     }
                 }
         
@@ -670,7 +671,7 @@
                 
                 if (item.nota) {
                     const noteElement = document.createElement('small');
-                    noteElement.className = 'text-warning fw-bold d-block';
+                    noteElement.className = 'nota-ticket';
                     noteElement.innerHTML = `<i class="fa-solid fa-arrow-turn-up fa-rotate-90 me-1"></i> `;
                     noteElement.appendChild(document.createTextNode(item.nota));
                     tdProd.appendChild(document.createElement('br')); 
@@ -699,7 +700,7 @@
             
             cuentasActivas.forEach(cta => {
                 if (cta !== item.cuenta) {
-                    btnContainer.innerHTML += `<button class="btn btn-outline-info fw-bold py-2" onclick="confirmarMover('${cta}')">A Cuenta ${cta}</button>`;
+                    btnContainer.innerHTML += `<button class="btn btn-outline-primary fw-bold py-2" onclick="confirmarMover('${cta}')">A Cuenta ${cta}</button>`;
                 }
             });
             modalMoverObj.show();
@@ -772,7 +773,7 @@
             let cantAUsar = multiplicadorActivo;
             multiplicadorActivo = 1;
             document.getElementById('txt-multiplicador').innerText = '1';
-            document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-secondary');
+            document.getElementById('btn-multiplicador').classList.replace('btn-warning', 'btn-outline-dark');
 
             productoPendiente = { codigo, nombre, precio, clase, grupo, cantidad: cantAUsar, es_menu };
 
