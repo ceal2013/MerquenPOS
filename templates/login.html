@@ -13,11 +13,11 @@
     
     <style>
         :root {
-            /* Colores corporativos Merquén (Alto Contraste) */
+            /* Colores corporativos Merquén */
             --color-primario: #8B1E1E; /* Rojo oscuro/guinda */
-            --color-boton: #047857;    /* Verde esmeralda alto contraste */
-            --color-boton-hover: #065f46;
-            --color-fondo: #e2e8f0;
+            --color-boton: #10b981;    /* Verde HotelNew */
+            --color-boton-hover: #059669;
+            --color-fondo: #f1f5f9;
         }
 
         body, html {
@@ -36,7 +36,7 @@
             background-color: white; 
             border-radius: 16px;      
             padding: 20px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
             display: inline-block;
             margin-bottom: 1.5rem;
         }
@@ -51,8 +51,7 @@
             background: white;
             border-radius: 12px;
             padding: 40px;
-            border: 1px solid #94a3b8;
-            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.14);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
             width: 100%;
             max-width: 500px;
         }
@@ -61,7 +60,6 @@
         @media (max-width: 767px) {
             .login-card {
                 padding: 25px 20px;
-                border: none;
                 box-shadow: none; /* Se ve más limpio sin sombra en móvil */
                 background: transparent; /* Se fusiona con el fondo */
             }
@@ -74,18 +72,17 @@
         .form-control-tablet, .form-select-tablet {
             padding: 16px;
             font-size: 1.2rem;
-            font-weight: 600;
             border-radius: 8px;
-            border: 2px solid #64748b;
-            background-color: #ffffff;
-            color: #0f172a;
+            border: 2px solid #cbd5e1;
+            background-color: #f8fafc;
+            color: #334155;
             transition: border-color 0.2s, box-shadow 0.2s;
         }
 
         .form-control-tablet:focus, .form-select-tablet:focus {
             border-color: var(--color-boton);
             background-color: #ffffff;
-            box-shadow: 0 0 0 4px rgba(4, 120, 87, 0.25);
+            box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.2); /* Sombra verde suave */
             outline: none;
         }
 
@@ -130,11 +127,11 @@
                         <img src="{% static 'logomerquen.png' %}" alt="Logo MerquenPOS" style="max-width: 120px; margin-bottom: 15px;">
                         
                         <h1 class="h1 fw-bold mb-1" style="color: var(--color-primario); letter-spacing: -1px;">MerquenPOS App</h1>
-                        <h2 class="h6 fw-bold text-dark mb-0" style="text-transform: uppercase; letter-spacing: 1px;">
+                        <h2 class="h6 fw-bold text-secondary mb-0" style="text-transform: uppercase; letter-spacing: 1px;">
                             {{ nombre_local }}
                         </h2>
                         
-                        <hr class="my-4" style="border-color: #94a3b8; opacity: 1;">
+                        <hr class="my-4" style="border-color: #cbd5e1; opacity: 1;">
                         
                         <h3 class="h4 text-dark fw-bold mb-0">Iniciar Sesión</h3>
                     </div>
@@ -149,7 +146,7 @@
                         {% csrf_token %}
                         
                         <div class="mb-4">
-                            <label for="usuario" class="form-label text-dark fw-bold mb-2">Seleccione su Usuario</label>
+                            <label for="usuario" class="form-label text-secondary fw-semibold mb-2">Seleccione su Usuario</label>
                             <select class="form-select form-select-tablet" id="usuario" name="usuario" required>
                                 <option value="" selected disabled>-- Toque para elegir --</option>
                                 {% for user in usuarios %}
@@ -159,7 +156,7 @@
                         </div>
                         
                         <div class="mb-4">
-                            <label for="password" class="form-label text-dark fw-bold mb-2">Contraseña</label>
+                            <label for="password" class="form-label text-secondary fw-semibold mb-2">Contraseña</label>
                             <input type="password" class="form-control form-control-tablet" id="password" name="password" placeholder="Ingrese su contraseña" required>
                         </div>
                         
