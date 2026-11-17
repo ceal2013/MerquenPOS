@@ -208,3 +208,15 @@ class TemplateContrastTests(SimpleTestCase):
         self.assertContains(response, '.nota-ticket')
         self.assertNotContains(response, "noteElement.className = 'text-warning")
 
+
+class SettingsConfigurationTests(SimpleTestCase):
+    def test_settings_include_persistent_connections_and_security_headers(self):
+        from django.conf import settings
+        self.assertEqual(settings.DATABASES['default']['CONN_MAX_AGE'], 60)
+        self.assertTrue(settings.SECURE_CONTENT_TYPE_NOSNIFF)
+        self.assertEqual(settings.X_FRAME_OPTIONS, 'DENY')
+        self.assertIn('http://localhost', settings.CSRF_TRUSTED_ORIGINS)
+        self.assertIn('http://127.0.0.1', settings.CSRF_TRUSTED_ORIGINS)
+        self.assertEqual(len(settings.CSRF_TRUSTED_ORIGINS), len(set(settings.CSRF_TRUSTED_ORIGINS)))
+        self.assertIn('POS', settings.LOGGING['loggers'])
+

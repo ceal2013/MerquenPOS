@@ -12,41 +12,52 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import os
 from pathlib import Path
+from django.core.exceptions import ImproperlyConfigured
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Cargar las variables del archivo .env al sistema
-load_dotenv()
+# Cargar las variables del archivo .env explícitamente desde la raíz del proyecto
+load_dotenv(BASE_DIR / '.env')
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-# Cargar desde una variable de entorno. Si no existe, usa una clave insegura para desarrollo.
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', 'django-insecure-dev-key-change-me')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 # Cargar desde una variable de entorno. Por defecto es False para seguridad.
-DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False').strip().lower() in ('true', '1', 'yes')
 
-# En producción, carga los hosts permitidos desde una variable de entorno.
-# Ejemplo: DJANGO_ALLOWED_HOSTS="merquenpos.midominio.com,www.merquenpos.midominio.com"
+# SECURITY WARNING: keep the secret key used in production secret!
+# Cargar desde una variable de entorno. Si no existe, usa una clave insegura solo para desarrollo.
+DEFAULT_INSECURE_SECRET_KEY = 'django-insecure-dev-key-change-me'
+SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY', DEFAULT_INSECURE_SECRET_KEY).strip()
+
+if not DEBUG and (
+    not SECRET_KEY
+    or SECRET_KEY in (DEFAULT_INSECURE_SECRET_KEY, 'escribe_aqui_una_clave_secreta_para_produccion')
+):
+    raise ImproperlyConfigured(
+        'En producción (DJANGO_DEBUG=False) debe definir una DJANGO_SECRET_KEY segura en el archivo .env.'
+    )
+
+# En producción, carga los hosts permitidos desde una variable de entorno limpiando espacios.
+# Ejemplo: DJANGO_ALLOWED_HOSTS="merquenpos.midominio.com, 192.168.1.50"
 if DEBUG:
     ALLOWED_HOSTS = ['*']
 else:
-    allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS')
-    ALLOWED_HOSTS = allowed_hosts_env.split(',') if allowed_hosts_env else []
+    allowed_hosts_env = os.environ.get('DJANGO_ALLOWED_HOSTS', '')
+    ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
 
 # Orígenes de confianza para validación CSRF.
-# Se añade localhost por defecto y se inyectan las URLs de producción desde el entorno.
-CSRF_TRUSTED_ORIGINS = ['http://localhost']
+# Se añaden localhost y 127.0.0.1 por defecto y se inyectan las URLs de producción desde el entorno sin duplicados.
+CSRF_TRUSTED_ORIGINS = ['http://localhost', 'http://127.0.0.1']
 
-csrf_trusted_env = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS')
+csrf_trusted_env = os.environ.get('DJANGO_CSRF_TRUSTED_ORIGINS', '')
 if csrf_trusted_env:
-    # Separa las URLs por coma en caso de haber múltiples (ej: http://ip,http://dominio)
-    CSRF_TRUSTED_ORIGINS.extend(csrf_trusted_env.split(','))
+    for origin in (o.strip() for o in csrf_trusted_env.split(',') if o.strip()):
+        if origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(origin)
 
 # Application definition
 
@@ -100,8 +111,9 @@ DATABASES = {
         'USER': os.environ.get('DB_USER', 'usuario_dev'),
         'PASSWORD': os.environ.get('DB_PASSWORD', 'pass_dev_123'),
         'HOST': os.environ.get('DB_HOST', 'localhost\\SQLEXPRESS'),
+        'CONN_MAX_AGE': int(os.environ.get('DB_CONN_MAX_AGE', '60')),
         'OPTIONS': {
-            'driver': 'ODBC Driver 17 for SQL Server',
+            'driver': os.environ.get('DB_DRIVER', 'ODBC Driver 17 for SQL Server'),
         },
     }
 }
@@ -155,14 +167,14 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # =====================================================================
-# CONFIGURACIÓN DE SESIONES
+# CONFIGURACIÓN DE SESIONES Y SEGURIDAD HTTP
 # =====================================================================
 # La sesión expirará después de 4 horas (14400 segundos) de inactividad.
 SESSION_COOKIE_AGE = 14400 
 # Guarda la sesión en cada petición, lo que reinicia el contador de inactividad.
 SESSION_SAVE_EVERY_REQUEST = True
 
-# --- MEJORAS DE SEGURIDAD PARA COOKIES (en producción) ---
+# --- MEJORAS DE SEGURIDAD PARA COOKIES Y CABECERAS ---
 # En una red LAN interna sin certificado SSL, esto DEBE ser False.
 SESSION_COOKIE_SECURE = False
 # En una red LAN interna sin certificado SSL, esto DEBE ser False.
@@ -172,3 +184,38 @@ SESSION_COOKIE_HTTPONLY = True
 # Protege las cookies contra envío en peticiones cross-site no deseadas.
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_SAMESITE = 'Lax'
+# Protege contra sniffing de tipos MIME y embebido en iframes externos.
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+
+# =====================================================================
+# REGISTRO DE EVENTOS Y ERRORES (LOGGING)
+# =====================================================================
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'standard',
+        },
+    },
+    'loggers': {
+        'POS': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+        'MerquenPOS': {
+            'handlers': ['console'],
+            'level': os.environ.get('DJANGO_LOG_LEVEL', 'INFO'),
+            'propagate': False,
+        },
+    },
+}
